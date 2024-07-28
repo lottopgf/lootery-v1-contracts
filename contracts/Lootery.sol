@@ -379,7 +379,7 @@ contract Lootery is
 
     /// @notice Purchase a ticket
     /// @param tickets Tickets! Tickets!
-    function purchase(Ticket[] calldata tickets) external {
+    function purchase(Ticket[] calldata tickets, address beneficiary) external {
         uint256 ticketsCount = tickets.length;
         uint256 totalPrice = ticketPrice * ticketsCount;
 
@@ -392,7 +392,11 @@ contract Lootery is
         // Handle fee splits
         uint256 communityFeeShare = (totalPrice * communityFeeBps) / 10000;
         uint256 jackpotShare = totalPrice - communityFeeShare;
-        accruedCommunityFees += communityFeeShare;
+        if (beneficiary == address(0)) {
+            accruedCommunityFees += communityFeeShare;
+        } else {
+            IERC20(prizeToken).safeTransfer(beneficiary, communityFeeShare);
+        }
 
         _pickTickets(tickets, jackpotShare);
     }

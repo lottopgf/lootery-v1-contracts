@@ -15,7 +15,8 @@ contract LooteryETHAdapter {
 
     function purchase(
         address payable looteryAddress,
-        Lootery.Ticket[] calldata tickets
+        Lootery.Ticket[] calldata tickets,
+        address beneficiary
     ) public payable {
         Lootery lootery = Lootery(looteryAddress);
         uint256 ticketsCount = tickets.length;
@@ -26,7 +27,7 @@ contract LooteryETHAdapter {
         wrappedToken.deposit{value: totalPrice}();
         wrappedToken.approve(looteryAddress, totalPrice);
 
-        lootery.purchase(tickets);
+        lootery.purchase(tickets, beneficiary);
     }
 
     function seedJackpot(address payable looteryAddress) public payable {

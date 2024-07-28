@@ -1372,6 +1372,11 @@
         "internalType": "struct Lootery.Ticket[]",
         "name": "tickets",
         "type": "tuple[]"
+      },
+      {
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
       }
     ],
     "name": "purchase",

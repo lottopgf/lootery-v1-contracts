@@ -18,6 +18,7 @@ import {
     LooteryETHAdapter__factory,
     TicketSVGRenderer__factory,
     TicketSVGRenderer,
+    ERC20__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
@@ -41,9 +42,10 @@ describe('Lootery', () => {
     let deployer: SignerWithAddress
     let bob: SignerWithAddress
     let alice: SignerWithAddress
+    let beneficiary: SignerWithAddress
     let ticketSVGRenderer: TicketSVGRenderer
     beforeEach(async () => {
-        ;[deployer, bob, alice] = await ethers.getSigners()
+        ;[deployer, bob, alice, beneficiary] = await ethers.getSigners()
         mockRandomiser = await new MockRandomiser__factory(deployer).deploy()
         testERC20 = await new TestERC20__factory(deployer).deploy(deployer)
         const looteryImpl = await new Lootery__factory(deployer).deploy()
@@ -97,12 +99,15 @@ describe('Lootery', () => {
         await testERC20.connect(bob).approve(lotto, parseEther('0.1'))
 
         const losingTicket = [3n, 11n, 22n, 29n, 42n]
-        await lotto.connect(bob).purchase([
-            {
-                whomst: bob.address,
-                picks: losingTicket,
-            },
-        ])
+        await lotto.connect(bob).purchase(
+            [
+                {
+                    whomst: bob.address,
+                    picks: losingTicket,
+                },
+            ],
+            ZeroAddress,
+        )
         // Bob receives NFT ticket
         expect(await lotto.balanceOf(bob.address)).to.eq(1)
         expect(await lotto.ownerOf(1)).to.eq(bob.address)
@@ -138,12 +143,15 @@ describe('Lootery', () => {
         await testERC20.connect(bob).approve(lotto, parseEther('0.1'))
 
         const winningTicket = [3n, 11n, 22n, 29n, 42n]
-        await lotto.connect(bob).purchase([
-            {
-                whomst: bob.address,
-                picks: winningTicket,
-            },
-        ])
+        await lotto.connect(bob).purchase(
+            [
+                {
+                    whomst: bob.address,
+                    picks: winningTicket,
+                },
+            ],
+            ZeroAddress,
+        )
         // Bob receives NFT ticket
         expect(await lotto.balanceOf(bob.address)).to.eq(2)
         expect(await lotto.ownerOf(2)).to.eq(bob.address)
@@ -190,7 +198,7 @@ describe('Lootery', () => {
         expect(await lotto.accruedCommunityFees()).to.eq(0)
     })
 
-    it.only('distributes winnings evenly', async () => {
+    it('distributes winnings evenly', async () => {
         // Launch a lottery
         const gamePeriod = BigInt(1 * 60 * 60) // 1h
         const lotto = await createLotto(
@@ -219,18 +227,24 @@ describe('Lootery', () => {
         await testERC20.connect(alice).approve(lotto, parseEther('0.1'))
 
         const winningTicket = [3n, 11n, 22n, 29n, 42n]
-        await lotto.connect(bob).purchase([
-            {
-                whomst: bob.address,
-                picks: winningTicket,
-            },
-        ])
-        await lotto.connect(alice).purchase([
-            {
-                whomst: alice.address,
-                picks: winningTicket,
-            },
-        ])
+        await lotto.connect(bob).purchase(
+            [
+                {
+                    whomst: bob.address,
+                    picks: winningTicket,
+                },
+            ],
+            ZeroAddress,
+        )
+        await lotto.connect(alice).purchase(
+            [
+                {
+                    whomst: alice.address,
+                    picks: winningTicket,
+                },
+            ],
+            ZeroAddress,
+        )
         // Bob receives NFT ticket
         expect(await lotto.balanceOf(bob.address)).to.eq(1)
         expect(await lotto.ownerOf(1)).to.eq(bob.address)
@@ -285,6 +299,36 @@ describe('Lootery', () => {
                 'ERC721NonexistentToken',
             )
         }
+    })
+
+    it('should transfer community fee to beneficiary', async () => {
+        const gamePeriod = BigInt(1 * 60 * 60) // 1h
+        const ticketPrice = parseEther('0.1')
+        const lotto = await createLotto(
+            'Lotto',
+            'LOTTO',
+            5,
+            69,
+            gamePeriod,
+            ticketPrice,
+            5000, // 50%,
+            testERC20,
+            3600, // 1 hour
+            parseEther('1'),
+        )
+        const beneficiaryBalanceBefore = await testERC20.balanceOf(beneficiary.address)
+        await testERC20.mint(deployer.address, parseEther('10'))
+        await testERC20.approve(await lotto.getAddress(), parseEther('10'))
+        await purchaseTicket(lotto, deployer.address, [1, 2, 3, 4, 5], beneficiary.address)
+        expect(await testERC20.balanceOf(beneficiary.address)).to.eq(
+            beneficiaryBalanceBefore + ticketPrice / 2n,
+        )
+
+        // Don't transfer to beneficiary if no beneficiary is set
+        await purchaseTicket(lotto, deployer.address, [1, 2, 3, 4, 5])
+        expect(await testERC20.balanceOf(beneficiary.address)).to.eq(
+            beneficiaryBalanceBefore + ticketPrice / 2n,
+        )
     })
 
     it('should rollover jackpot to next round if noone has won', async () => {
@@ -766,6 +810,7 @@ describe('Lootery', () => {
                             picks: [1n, 2n, 3n, 4n, 5n],
                         },
                     ],
+                    ZeroAddress,
                     { value: parseEther('1') },
                 ),
             ).to.be.revertedWith('Need to provide exact funds')
@@ -778,6 +823,7 @@ describe('Lootery', () => {
                         picks: [1n, 2n, 3n, 4n, 5n],
                     },
                 ],
+                ZeroAddress,
                 { value: parseEther('0.1') },
             )
         })
@@ -831,6 +877,7 @@ describe('Lootery', () => {
                     picks: slikpik(numPicks, domain),
                     whomst,
                 })),
+                ZeroAddress,
             )
             for (let i = 0; i < randomAddresses.length; i++) {
                 const whomst = randomAddresses[i]
@@ -980,18 +1027,21 @@ function slikpik(numPicks: bigint, domain: bigint) {
  * @param connectedLotto Lottery contract
  * @param whomst Who to mint the ticket to
  */
-async function buySlikpik(connectedLotto: Lootery, whomst: string) {
+async function buySlikpik(connectedLotto: Lootery, whomst: string, beneficiary?: string) {
     const numPicks = await connectedLotto.numPicks()
     const domain = await connectedLotto.maxBallValue()
     // Generate shuffled pick
     const picks = slikpik(numPicks, domain)
     const tx = await connectedLotto
-        .purchase([
-            {
-                whomst,
-                picks,
-            },
-        ])
+        .purchase(
+            [
+                {
+                    whomst,
+                    picks,
+                },
+            ],
+            beneficiary || ZeroAddress,
+        )
         .then((tx) => tx.wait())
     const parsedLogs = tx!.logs
         .map((log) =>
@@ -1012,19 +1062,27 @@ async function buySlikpik(connectedLotto: Lootery, whomst: string) {
  * @param whomst Who to mint the ticket to
  * @param picks Picks
  */
-async function purchaseTicket(connectedLotto: Lootery, whomst: string, picks: BigNumberish[]) {
+async function purchaseTicket(
+    connectedLotto: Lootery,
+    whomst: string,
+    picks: BigNumberish[],
+    beneficiary?: string,
+) {
     const numPicks = await connectedLotto.numPicks()
     if (picks.length !== Number(numPicks)) {
         throw new Error(`Invalid number of picks (expected ${numPicks}, got picks.length)`)
     }
-    const ticketPrice = await connectedLotto.ticketPrice()
+    // const ticketPrice = await connectedLotto.ticketPrice()
     const tx = await connectedLotto
-        .purchase([
-            {
-                whomst,
-                picks,
-            },
-        ])
+        .purchase(
+            [
+                {
+                    whomst,
+                    picks,
+                },
+            ],
+            beneficiary || ZeroAddress,
+        )
         .then((tx) => tx.wait())
     const lottoAddress = await connectedLotto.getAddress()
     const parsedLogs = tx!.logs
