@@ -190,6 +190,103 @@ describe('Lootery', () => {
         expect(await lotto.accruedCommunityFees()).to.eq(0)
     })
 
+    it.only('distributes winnings evenly', async () => {
+        // Launch a lottery
+        const gamePeriod = BigInt(1 * 60 * 60) // 1h
+        const lotto = await createLotto(
+            'Lotto',
+            'LOTTO',
+            5,
+            69,
+            gamePeriod,
+            parseEther('0.1'),
+            5000, // 50%,
+            testERC20,
+            3600, // 1 hour
+            parseEther('1'),
+        )
+
+        // Allow seeding jackpot
+        await testERC20.mint(deployer, parseEther('10'))
+        await testERC20.approve(lotto, parseEther('10'))
+        await lotto.seedJackpot(parseEther('10'))
+        expect(await testERC20.balanceOf(lotto)).to.eq(parseEther('10'))
+
+        // Bob and Alice purchase a winning ticket for 0.1
+        await testERC20.mint(bob, parseEther('0.1'))
+        await testERC20.connect(bob).approve(lotto, parseEther('0.1'))
+        await testERC20.mint(alice, parseEther('0.1'))
+        await testERC20.connect(alice).approve(lotto, parseEther('0.1'))
+
+        const winningTicket = [3n, 11n, 22n, 29n, 42n]
+        await lotto.connect(bob).purchase([
+            {
+                whomst: bob.address,
+                picks: winningTicket,
+            },
+        ])
+        await lotto.connect(alice).purchase([
+            {
+                whomst: alice.address,
+                picks: winningTicket,
+            },
+        ])
+        // Bob receives NFT ticket
+        expect(await lotto.balanceOf(bob.address)).to.eq(1)
+        expect(await lotto.ownerOf(1)).to.eq(bob.address)
+
+        // Draw
+        await time.increase(gamePeriod)
+        await setBalance(await lotto.getAddress(), parseEther('0.1'))
+        await lotto.draw()
+        let { requestId } = await lotto.randomnessRequest()
+        expect(requestId).to.not.eq(0n)
+
+        // Fulfill w/ mock randomiser (Bob wins)
+        const fulfilmentTx = await mockRandomiser
+            .fulfillRandomWords(requestId, [6942069420])
+            .then((tx) => tx.wait(1))
+        const [emittedGameId, emittedBalls] = lotto.interface.decodeEventLog(
+            'GameFinalised',
+            fulfilmentTx?.logs?.[0].data!,
+            fulfilmentTx?.logs?.[0].topics,
+        ) as unknown as [bigint, bigint[]]
+        expect(emittedGameId).to.eq(0n)
+        expect(emittedBalls).to.deep.eq(winningTicket)
+        expect(await lotto.gameData(emittedGameId).then((game) => game.winningPickId)).to.eq(
+            computePickId(emittedBalls),
+        )
+
+        // Bob & Alice each claim half of the pot
+        const jackpot = await lotto.unclaimedPayouts()
+        expect(jackpot).to.eq(parseEther('10.1'))
+        const jackpotShare = jackpot / 2n
+        {
+            // Bob
+            const balanceBefore = await testERC20.balanceOf(bob.address)
+            await expect(lotto.claimWinnings(1))
+                .to.emit(lotto, 'WinningsClaimed')
+                .withArgs(1, 0, bob.address, jackpotShare)
+            expect(await testERC20.balanceOf(bob.address)).to.eq(balanceBefore + jackpotShare)
+            await expect(lotto.ownerOf(1)).to.be.revertedWithCustomError(
+                lotto,
+                'ERC721NonexistentToken',
+            )
+        }
+        {
+            // Alice
+            const balanceBefore = await testERC20.balanceOf(alice.address)
+            await expect(lotto.claimWinnings(2))
+                .to.emit(lotto, 'WinningsClaimed')
+                .withArgs(2, 0, alice.address, jackpotShare)
+            expect(await testERC20.balanceOf(alice.address)).to.eq(balanceBefore + jackpotShare)
+            await expect(lotto.ownerOf(2)).to.be.revertedWithCustomError(
+                lotto,
+                'ERC721NonexistentToken',
+            )
+        }
+    })
+
     it('should rollover jackpot to next round if noone has won', async () => {
         const gamePeriod = 1n * 60n * 60n
         async function deploy() {

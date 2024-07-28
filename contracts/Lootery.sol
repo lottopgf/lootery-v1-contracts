@@ -153,6 +153,8 @@ contract Lootery is
     /// @notice Game id => pick identity => tokenIds
     mapping(uint256 gameId => mapping(uint256 id => uint256[]))
         public tokenByPickIdentity;
+    /// @notice Game id => claimed winning tickets
+    mapping(uint256 gameId => uint256[]) public claimedWinningTickets;
     /// @notice Accrued community fee share (wei)
     uint256 public accruedCommunityFees;
     /// @notice When nonzero, this gameId will be the last
@@ -593,6 +595,8 @@ contract Lootery is
         uint256 winningPickId = game.winningPickId;
         uint256 numWinners = tokenByPickIdentity[ticket.gameId][winningPickId]
             .length;
+        uint256 numClaimedWinningTickets = claimedWinningTickets[ticket.gameId]
+            .length;
 
         if (numWinners == 0 && !isGameActive()) {
             // No jackpot winners, and game is no longer active!
@@ -607,9 +611,12 @@ contract Lootery is
         if (winningPickId == ticket.pickId) {
             // NB: `numWinners` != 0 in this path
             // This ticket did have the winning numbers
-            uint256 prizeShare = unclaimedPayouts / numWinners;
+            uint256 prizeShare = unclaimedPayouts /
+                (numWinners - numClaimedWinningTickets);
             // Decrease unclaimed payouts by the amount just claimed
             unclaimedPayouts -= prizeShare;
+            // Record that this ticket has claimed its winnings
+            claimedWinningTickets[ticket.gameId].push(tokenId);
             // Transfer share of jackpot to ticket holder
             _transferOrBust(whomst, prizeShare);
 
