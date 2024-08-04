@@ -168,6 +168,11 @@ contract Lootery is
         uint256 indexed tokenId,
         uint8[] picks
     );
+    event BeneficiaryPaid(
+        uint256 indexed gameId,
+        address indexed beneficiary,
+        uint256 value
+    );
     event GameFinalised(uint256 gameId, uint8[] winningPicks);
     event Transferred(address to, uint256 value);
     event WinningsClaimed(
@@ -392,11 +397,17 @@ contract Lootery is
         // Handle fee splits
         uint256 communityFeeShare = (totalPrice * communityFeeBps) / 10000;
         uint256 jackpotShare = totalPrice - communityFeeShare;
+        uint256 currentGameId = currentGame.id;
         if (beneficiary == address(0)) {
             accruedCommunityFees += communityFeeShare;
         } else {
             IERC20(prizeToken).safeTransfer(beneficiary, communityFeeShare);
         }
+        emit BeneficiaryPaid(
+            currentGameId,
+            beneficiary == address(0) ? address(this) : beneficiary,
+            communityFeeShare
+        );
 
         _pickTickets(tickets, jackpotShare);
     }
