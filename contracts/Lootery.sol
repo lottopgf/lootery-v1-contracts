@@ -537,12 +537,37 @@ contract Lootery is
     ///     as necessary.
     function _setupNextGame() internal {
         uint248 gameId = currentGame.id;
+
+        // Ready for next game
+        currentGame = CurrentGame({state: GameState.Purchase, id: gameId + 1});
+
+        // Set up next game
+        gameData[gameId + 1] = Game({
+            ticketsSold: 0,
+            startedAt: uint64(block.timestamp),
+            winningPickId: 0
+        });
+
         // Roll over jackpot if no winner
         uint256 winningPickId = gameData[gameId].winningPickId;
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
-        if (numWinners == 0) {
+        if (numWinners == 0 && !isGameActive()) {
+            // No winners, but apocalypse mode
+            uint256 nextJackpot = 0;
+            uint256 nextUnclaimedPayouts = currentUnclaimedPayouts +
+                currentJackpot;
+            jackpot = 0;
+            unclaimedPayouts = nextUnclaimedPayouts;
+            emit JackpotRollover(
+                gameId,
+                currentUnclaimedPayouts,
+                currentJackpot,
+                nextUnclaimedPayouts,
+                nextJackpot
+            );
+        } else if (numWinners == 0) {
             // No winners, current jackpot and unclaimed payouts are rolled
             // over to the next game
             uint256 nextJackpot = currentUnclaimedPayouts + currentJackpot;
@@ -570,16 +595,6 @@ contract Lootery is
                 0
             );
         }
-
-        // Ready for next game
-        currentGame = CurrentGame({state: GameState.Purchase, id: gameId + 1});
-
-        // Set up next game
-        gameData[gameId + 1] = Game({
-            ticketsSold: 0,
-            startedAt: uint64(block.timestamp),
-            winningPickId: 0
-        });
     }
 
     /// @notice Claim a share of the jackpot with a winning ticket.

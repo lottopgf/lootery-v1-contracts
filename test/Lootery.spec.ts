@@ -775,6 +775,7 @@ describe('Lootery', () => {
 
             // No winners -> each ticket claims share of jackpot
             const unclaimedPayouts = await lotto.unclaimedPayouts()
+            expect(unclaimedPayouts).to.be.gt(0n)
             const expectedShare = unclaimedPayouts / BigInt(tickets.length)
             for (const ticket of tickets) {
                 const balanceBefore = await testERC20.balanceOf(ticket.owner)
