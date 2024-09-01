@@ -129,7 +129,7 @@ describe('Lootery', () => {
             fulfilmentTx?.logs?.[0].topics,
         ) as unknown as [bigint, bigint[]]
         expect(emittedGameId).to.eq(0)
-        expect(emittedBalls).to.deep.eq([1n, 3n, 32n, 53n, 69n])
+        expect(emittedBalls).to.deep.eq([12n, 13n, 25n, 51n, 65n])
         expect(await lotto.gameData(emittedGameId).then((game) => game.winningPickId)).to.eq(
             computePickId(emittedBalls),
         )
@@ -142,7 +142,7 @@ describe('Lootery', () => {
         await testERC20.mint(bob, parseEther('0.1'))
         await testERC20.connect(bob).approve(lotto, parseEther('0.1'))
 
-        const winningTicket = [3n, 11n, 22n, 29n, 42n]
+        const winningTicket = [31n, 35n, 37n, 56n, 61n]
         await lotto.connect(bob).purchase(
             [
                 {
@@ -226,7 +226,7 @@ describe('Lootery', () => {
         await testERC20.mint(alice, parseEther('0.1'))
         await testERC20.connect(alice).approve(lotto, parseEther('0.1'))
 
-        const winningTicket = [3n, 11n, 22n, 29n, 42n]
+        const winningTicket = [31n, 35n, 37n, 56n, 61n]
         await lotto.connect(bob).purchase(
             [
                 {
@@ -345,13 +345,15 @@ describe('Lootery', () => {
         await testERC20.mint(deployer, parseEther('10'))
         await testERC20.approve(lotto, parseEther('10'))
 
-        const winningTicket = [3n, 11n, 22n, 29n, 42n]
+        const winningTicket = [31n, 35n, 37n, 56n, 61n]
 
         const { tokenId: bobTokenId } = await purchaseTicket(lotto, bob.address, winningTicket)
         const { tokenId: aliceTokenId } = await purchaseTicket(lotto, alice.address, winningTicket)
         expect(await lotto.jackpot()).to.eq(parseEther('10.1'))
 
-        await fastForwardAndDraw(6942069420n)
+        const seed = 6942069420n
+        await fastForwardAndDraw(seed)
+        expect(await lotto.computeWinningBalls(seed)).to.deep.eq(winningTicket)
 
         // Current jackpot + 2 tickets
         expect(await lotto.unclaimedPayouts()).to.be.eq(parseEther('10.1'))
@@ -674,7 +676,7 @@ describe('Lootery', () => {
 
             // Buy tickets
             const picks: [string, number[]][] = [
-                [bob.address, [1, 3, 32, 53, 69]],
+                [bob.address, [12, 13, 25, 51, 65]],
                 [bob.address, [2, 3, 4, 5, 6]],
                 [alice.address, [3, 4, 5, 6, 7]],
                 [alice.address, [4, 5, 6, 7, 8]],
@@ -689,8 +691,10 @@ describe('Lootery', () => {
                 }),
             )
 
-            await fastForwardAndDraw(6942069421n)
+            const seed = 6942069421n
+            await fastForwardAndDraw(seed)
             expect(await lotto.isGameActive()).to.eq(false)
+            expect(await lotto.computeWinningBalls(seed)).to.deep.eq(picks[0][1] /** bob's */)
 
             // Game no longer active -> no longer possible to do the following actions
             await expect(lotto.kill()).to.be.revertedWithCustomError(lotto, 'GameInactive')

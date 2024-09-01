@@ -55,7 +55,7 @@ library Pick {
                         i,
                         maxBallValue,
                         randomSeed,
-                        4
+                        12
                     )
             );
         }
