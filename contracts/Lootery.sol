@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {FeistelShuffleOptimised} from "./lib/FeistelShuffleOptimised.sol";
-import {Sort} from "./lib/Sort.sol";
+import {ILootery} from "./interfaces/ILootery.sol";
+import {Pick} from "./lib/Pick.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -40,78 +40,13 @@ import {ITicketSVGRenderer} from "./interfaces/ITicketSVGRenderer.sol";
 ///     While the jackpot builds up over time, it is possible (and desirable)
 ///     to seed the jackpot at any time using the `seedJackpot` function.
 contract Lootery is
-    IRandomiserCallback,
     Initializable,
+    ILootery,
     OwnableUpgradeable,
     ERC721Upgradeable
 {
-    using Sort for uint8[];
     using SafeERC20 for IERC20;
     using Strings for uint256;
-
-    /// @notice Initial configuration of Lootery
-    struct InitConfig {
-        address owner;
-        string name;
-        string symbol;
-        uint8 numPicks;
-        uint8 maxBallValue;
-        uint256 gamePeriod;
-        uint256 ticketPrice;
-        uint256 communityFeeBps;
-        address randomiser;
-        address prizeToken;
-        uint256 seedJackpotDelay;
-        uint256 seedJackpotMinValue;
-        address ticketSVGRenderer;
-    }
-
-    /// @notice Current state of the lootery
-    enum GameState {
-        /// @notice This is the only state where the jackpot can increase
-        Purchase,
-        /// @notice Waiting for VRF fulfilment
-        DrawPending
-    }
-
-    struct CurrentGame {
-        /// @notice aka uint8
-        GameState state;
-        /// @notice current gameId
-        uint248 id;
-    }
-
-    /// @notice A ticket to be purchased
-    struct Ticket {
-        /// @notice For whomst shall this purchase be made out
-        address whomst;
-        /// @notice Lotto numbers, pick wisely! Picks must be ASCENDINGLY
-        ///     ORDERED, with NO DUPLICATES!
-        uint8[] picks;
-    }
-
-    struct Game {
-        /// @notice Number of tickets sold per game
-        uint64 ticketsSold;
-        /// @notice Timestamp of when the game started
-        uint64 startedAt;
-        /// @notice Winning pick identity, once it's been drawn
-        uint256 winningPickId;
-    }
-
-    /// @notice An already-purchased ticket, assigned to a tokenId
-    struct PurchasedTicket {
-        /// @notice gameId that ticket is valid for
-        uint256 gameId;
-        /// @notice Pick identity - see {Lootery-computePickIdentity}
-        uint256 pickId;
-    }
-
-    /// @notice Describes an inflight randomness request
-    struct RandomnessRequest {
-        uint208 requestId;
-        uint48 timestamp;
-    }
 
     /// @notice How many numbers must be picked per draw (and per ticket)
     ///     The range of this number should be something like 3-7
@@ -162,82 +97,12 @@ contract Lootery is
     /// @notice Timestamp of when jackpot was last seeded
     uint256 public jackpotLastSeededAt;
 
-    event TicketPurchased(
-        uint256 indexed gameId,
-        address indexed whomst,
-        uint256 indexed tokenId,
-        uint8[] picks
-    );
-    event BeneficiaryPaid(
-        uint256 indexed gameId,
-        address indexed beneficiary,
-        uint256 value
-    );
-    event GameFinalised(uint256 gameId, uint8[] winningPicks);
-    event Transferred(address to, uint256 value);
-    event WinningsClaimed(
-        uint256 indexed tokenId,
-        uint256 indexed gameId,
-        address whomst,
-        uint256 value
-    );
-    event ConsolationClaimed(
-        uint256 indexed tokenId,
-        uint256 indexed gameId,
-        address whomst,
-        uint256 value
-    );
-    event DrawSkipped(uint256 indexed gameId);
-    event Received(address sender, uint256 amount);
-    event JackpotSeeded(address indexed whomst, uint256 amount);
-    event JackpotRollover(
-        uint256 indexed gameId,
-        uint256 unclaimedPayouts,
-        uint256 currentJackpot,
-        uint256 nextUnclaimedPayouts,
-        uint256 nextJackpot
-    );
-    event GasRefundAttempted(
-        address indexed to,
-        uint256 value,
-        uint256 gasUsed,
-        uint256 gasPrice,
-        bool success
-    );
-
-    error TransferFailure(address to, uint256 value, bytes reason);
-    error InvalidNumPicks(uint256 numPicks);
-    error InvalidGamePeriod(uint256 gamePeriod);
-    error InvalidTicketPrice(uint256 ticketPrice);
-    error InvalidRandomiser(address randomiser);
-    error InvalidPrizeToken(address prizeToken);
-    error InvalidSeedJackpotConfig(uint256 delay, uint256 minValue);
-    error IncorrectPaymentAmount(uint256 paid, uint256 expected);
-    error InvalidTicketSVGRenderer(address renderer);
-    error UnsortedPicks(uint8[] picks);
-    error InvalidBallValue(uint256 ballValue);
-    error GameAlreadyDrawn();
-    error UnexpectedState(GameState actual, GameState expected);
-    error RequestAlreadyInFlight(uint256 requestId, uint256 timestamp);
-    error RequestIdOverflow(uint256 requestId);
-    error CallerNotRandomiser(address caller);
-    error RequestIdMismatch(uint256 actual, uint208 expected);
-    error InsufficientRandomWords();
-    error NoWin(uint256 pickId, uint256 winningPickId);
-    error WaitLonger(uint256 deadline);
-    error TicketsSoldOverflow(uint256 value);
-    error InsufficientOperationalFunds(uint256 have, uint256 want);
-    error ClaimWindowMissed(uint256 tokenId);
-    error GameInactive();
-    error RateLimited(uint256 secondsToWait);
-    error InsufficientJackpotSeed(uint256 value);
-
     constructor() {
         _disableInitializers();
     }
 
     /// @notice Initialisoooooooor
-    function init(InitConfig memory initConfig) public initializer {
+    function init(InitConfig memory initConfig) public override initializer {
         __Ownable_init(initConfig.owner);
         __ERC721_init(initConfig.name, initConfig.symbol);
 
@@ -331,55 +196,21 @@ contract Lootery is
         emit JackpotSeeded(msg.sender, value);
     }
 
-    /// @notice Compute the identity of an ordered set of numbers.
-    /// @dev NB: DOES NOT check ordering of `picks`!
-    /// @param picks *Set* of numbers
-    /// @return id Identity (hash) of the set
-    function computePickIdentity(
-        uint8[] memory picks
-    ) internal pure returns (uint256) {
-        uint256 id;
-        for (uint256 i; i < picks.length; ++i) {
-            id |= uint256(1) << picks[i];
-        }
-        return id;
-    }
-
+    /// @notice Helper to parse a pick id into a pick array
+    /// @param pickId Pick id
     function computePicks(
         uint256 pickId
     ) public view returns (uint8[] memory picks) {
-        picks = new uint8[](numPicks);
-        uint256 p;
-        for (uint256 i; i < 256; ++i) {
-            bool isSet = (pickId >> i) & 1 == 1;
-            if (isSet) {
-                picks[p++] = uint8(i);
-            }
-            if (p == numPicks) {
-                break;
-            }
-        }
+        return Pick.parse(numPicks, pickId);
     }
 
-    /// @notice Compute the winning numbers/balls given a random seed.
+    /// @notice Helper to compute the winning numbers/balls given a random seed.
     /// @param randomSeed Seed that determines the permutation of BALLS
     /// @return balls Ordered set of winning numbers
     function computeWinningBalls(
         uint256 randomSeed
     ) public view returns (uint8[] memory balls) {
-        balls = new uint8[](numPicks);
-        for (uint256 i; i < numPicks; ++i) {
-            balls[i] = uint8(
-                1 +
-                    FeistelShuffleOptimised.shuffle(
-                        i,
-                        maxBallValue,
-                        randomSeed,
-                        4
-                    )
-            );
-        }
-        balls = balls.sort();
+        return Pick.draw(numPicks, maxBallValue, randomSeed);
     }
 
     /// @notice Purchase a ticket
@@ -527,7 +358,7 @@ contract Lootery is
         emit GameFinalised(gameId, balls);
 
         // Record winning pick bitset
-        uint256 winningPickId = computePickIdentity(balls);
+        uint256 winningPickId = Pick.id(balls);
         gameData[gameId].winningPickId = winningPickId;
 
         _setupNextGame();
@@ -670,7 +501,7 @@ contract Lootery is
         _pickTickets(tickets, 0);
     }
 
-    /// @notice Set the next game as the last game of the lottery.
+    /// @notice Set this game as the last game of the lottery.
     ///     aka invoke apocalypse mode.
     function kill() external onlyOwner {
         if (apocalypseGameId != 0) {
@@ -768,7 +599,7 @@ contract Lootery is
 
             // Record picked numbers
             uint256 tokenId = startingTokenId + t;
-            uint256 pickId = computePickIdentity(picks);
+            uint256 pickId = Pick.id(picks);
             purchasedTickets[tokenId] = PurchasedTicket({
                 gameId: currentGameId,
                 pickId: pickId
@@ -820,7 +651,7 @@ contract Lootery is
                 name(),
                 tokenId,
                 maxBallValue,
-                computePicks(purchasedTickets[tokenId].pickId)
+                Pick.parse(numPicks, purchasedTickets[tokenId].pickId)
             );
     }
 }

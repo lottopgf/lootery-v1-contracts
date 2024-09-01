@@ -5,7 +5,7 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {StorageSlot} from "@openzeppelin/contracts/utils/StorageSlot.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {Lootery} from "./Lootery.sol";
+import {ILootery} from "./interfaces/ILootery.sol";
 
 /// @title LooteryFactory
 /// @custom:version 1.1.0
@@ -163,8 +163,8 @@ contract LooteryFactory is UUPSUpgradeable, AccessControlUpgradeable {
         address payable looteryProxy = payable(
             Clones.cloneDeterministic(looteryMasterCopy, salt)
         );
-        Lootery(looteryProxy).init(
-            Lootery.InitConfig({
+        ILootery(looteryProxy).init(
+            ILootery.InitConfig({
                 owner: msg.sender,
                 name: name,
                 symbol: symbol,
