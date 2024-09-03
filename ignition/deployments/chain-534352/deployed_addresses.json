@@ -3,5 +3,6 @@
   "LooteryImpl#Lootery": "0x130566E023E76A16FEf031Fe1b653bDF7a535eeF",
   "LooteryFactory#LooteryFactory": "0x9C4fa58a8D7E9fb55020B3c4550a7F1D3Bc958da",
   "LooteryFactory#ERC1967Proxy": "0x1E7aC276CBdae55689Df1d99108d69Fff444cB88",
-  "LooteryETHAdapter#LooteryETHAdapter": "0xeF25bdE35653f89229fe37b9F7d82484B8c47e4F"
+  "LooteryETHAdapter#LooteryETHAdapter": "0xeF25bdE35653f89229fe37b9F7d82484B8c47e4F",
+  "LooteryImplV1_3_0#Lootery": "0xA5Dc4C6970eAEdfE1bb9a8bb089f773fe1E39482"
 }
