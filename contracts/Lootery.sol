@@ -243,7 +243,7 @@ contract Lootery is
             tokenByPickIdentity[currentGameId][pickId].push(tokenId);
             emit TicketPurchased(currentGameId, whomst, tokenId, picks);
         }
-        // Effects
+        // Finally, mint NFTs
         for (uint256 t; t < ticketsCount; ++t) {
             address whomst = tickets[t].whomst;
             _safeMint(whomst, startingTokenId + t);
