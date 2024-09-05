@@ -161,7 +161,9 @@ contract Lootery is
 
     /// @notice Determine if game is active (in any playable state). If this
     ///     returns `false`, it means that the lottery is no longer playable.
-    function isGameActive() public view returns (bool) {
+    /// @dev This is a helper function exposed for frontend (also for legacy
+    ///     reasons). Check the game state directly in the contract.
+    function isGameActive() external view returns (bool) {
         return currentGame.state != GameState.Dead;
     }
 
@@ -331,12 +333,9 @@ contract Lootery is
     function receiveRandomWords(
         uint256 requestId,
         uint256[] calldata randomWords
-    ) external {
+    ) external onlyInState(GameState.DrawPending) {
         if (msg.sender != randomiser) {
             revert CallerNotRandomiser(msg.sender);
-        }
-        if (currentGame.state != GameState.DrawPending) {
-            revert UnexpectedState(currentGame.state);
         }
         if (randomnessRequest.requestId != requestId) {
             revert RequestIdMismatch(requestId, randomnessRequest.requestId);
@@ -362,6 +361,9 @@ contract Lootery is
     /// @dev Transition to next game, locking and/or rolling over any jackpots
     ///     as necessary.
     function _setupNextGame() internal {
+        // Invariant: can't setup a next game if the lottery has been killed
+        assert(currentGame.state != GameState.Dead);
+
         // Current game id, before the state transition
         uint248 gameId = currentGame.id;
 
@@ -468,7 +470,7 @@ contract Lootery is
         uint256 numClaimedWinningTickets = claimedWinningTickets[ticket.gameId]
             .length;
 
-        if (numWinners == 0 && !isGameActive()) {
+        if (numWinners == 0 && currentGame.state == GameState.Dead) {
             // No jackpot winners, and game is no longer active!
             // Jackpot is shared between all tickets
             // Invariant: `ticketsSold[gameId] > 0`
