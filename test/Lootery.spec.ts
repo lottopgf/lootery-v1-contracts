@@ -18,7 +18,6 @@ import {
     LooteryETHAdapter__factory,
     TicketSVGRenderer__factory,
     TicketSVGRenderer,
-    ERC20__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {

@@ -156,6 +156,7 @@ contract Lootery is
 
         _setTicketSVGRenderer(initConfig.ticketSVGRenderer);
 
+        currentGame.state = GameState.Purchase;
         gameData[0] = Game({
             ticketsSold: 0,
             // The first game starts straight away

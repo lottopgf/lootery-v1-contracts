@@ -27,6 +27,9 @@ interface ILootery is IRandomiserCallback, IERC721 {
 
     /// @notice Current state of the lootery
     enum GameState {
+        /// @notice Unitialised state, i.e. before the `init` function
+        ///     has been called
+        Uninitialised,
         /// @notice This is the only state where the jackpot can increase
         Purchase,
         /// @notice Waiting for VRF fulfilment
