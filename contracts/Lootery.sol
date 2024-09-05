@@ -520,7 +520,7 @@ contract Lootery is
             // Jackpot is shared between all tickets
             // Invariant: `ticketsSold[gameId] > 0`
             uint256 prizeShare = unclaimedPayouts / game.ticketsSold;
-            _transferOrBust(whomst, prizeShare);
+            IERC20(prizeToken).safeTransfer(whomst, prizeShare);
             emit ConsolationClaimed(tokenId, ticket.gameId, whomst, prizeShare);
             return;
         }
@@ -535,7 +535,7 @@ contract Lootery is
             // Record that this ticket has claimed its winnings
             claimedWinningTickets[ticket.gameId].push(tokenId);
             // Transfer share of jackpot to ticket holder
-            _transferOrBust(whomst, prizeShare);
+            IERC20(prizeToken).safeTransfer(whomst, prizeShare);
 
             emit WinningsClaimed(tokenId, ticket.gameId, whomst, prizeShare);
             return;
@@ -548,7 +548,7 @@ contract Lootery is
     function withdrawAccruedFees() external onlyOwner {
         uint256 totalAccrued = accruedCommunityFees;
         accruedCommunityFees = 0;
-        _transferOrBust(msg.sender, totalAccrued);
+        IERC20(prizeToken).safeTransfer(msg.sender, totalAccrued);
     }
 
     /// @notice Set this game as the last game of the lottery.
@@ -586,13 +586,6 @@ contract Lootery is
         }
 
         IERC20(tokenAddress).safeTransfer(msg.sender, amount);
-    }
-
-    /// @notice Helper to transfer the `prizeToken`.
-    /// @param to Address to transfer to
-    /// @param value Value (in wei) to transfer
-    function _transferOrBust(address to, uint256 value) internal {
-        IERC20(prizeToken).safeTransfer(to, value);
     }
 
     /// @notice Helper to parse a pick id into a pick array
