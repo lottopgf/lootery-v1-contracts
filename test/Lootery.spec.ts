@@ -10,8 +10,8 @@ import {
     type TestERC20,
     TicketSVGRenderer__factory,
     TicketSVGRenderer,
-    Lootery,
     ILootery,
+    LooteryHarness__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import { ZeroAddress, parseEther } from 'ethers'
@@ -20,6 +20,10 @@ import { deployProxy } from './helpers/deployProxy'
 import { GameState } from './helpers/GameState'
 import { computePickId, deployLotto } from './helpers/lotto'
 import crypto from 'node:crypto'
+
+const allStates = Object.values(GameState).filter(
+    (key): key is number => typeof key === 'number',
+) as GameState[]
 
 describe.only('Lootery', () => {
     let mockRandomiser: MockRandomiser
@@ -70,7 +74,7 @@ describe.only('Lootery', () => {
 
     describe('#init', () => {
         it('should initialise when given valid config', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             expect((await lotto.currentGame()).state).to.equal(GameState.Uninitialised)
             const initTx = await lotto.init(validConfig).then((tx) => tx.wait())
             // State is initialised
@@ -99,7 +103,7 @@ describe.only('Lootery', () => {
         })
 
         it('should revert if numPicks == 0', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             await expect(
                 lotto.init({
                     ...validConfig,
@@ -109,7 +113,7 @@ describe.only('Lootery', () => {
         })
 
         it('should revert if gamePeriod < 10 minutes', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             await expect(
                 lotto.init({
                     ...validConfig,
@@ -119,7 +123,7 @@ describe.only('Lootery', () => {
         })
 
         it('should revert if ticketPrice is unspecified', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             await expect(
                 lotto.init({
                     ...validConfig,
@@ -129,7 +133,7 @@ describe.only('Lootery', () => {
         })
 
         it('should revert if randomiser is unspecified', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             await expect(
                 lotto.init({
                     ...validConfig,
@@ -139,7 +143,7 @@ describe.only('Lootery', () => {
         })
 
         it('should revert if prizeToken is unspecified', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             await expect(
                 lotto.init({
                     ...validConfig,
@@ -149,7 +153,7 @@ describe.only('Lootery', () => {
         })
 
         it('should revert if seed jackpot config is invalid', async () => {
-            const lotto = await deployUninitialisedLootery(deployer)
+            const { lotto } = await deployUninitialisedLootery(deployer)
             await expect(
                 lotto.init({
                     ...validConfig,
@@ -172,8 +176,97 @@ describe.only('Lootery', () => {
         })
     })
 
+    describe('#seedJackpot', () => {
+        it('should revert if called in any state other than Purchase', async () => {
+            const { lotto } = await deployUninitialisedLootery(deployer)
+            const allOtherStates = allStates.filter((state) => state !== GameState.Purchase)
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await expect(lotto.seedJackpot(0n))
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
+
+        it('should seed the jackpot', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                shouldSkipSeedJackpot: true,
+            })
+            expect(await lotto.jackpot()).to.equal(0)
+
+            const seedJackpotMinValue = await lotto.seedJackpotMinValue()
+            await testERC20.mint(deployer.address, seedJackpotMinValue)
+            await testERC20.approve(await lotto.getAddress(), seedJackpotMinValue)
+            expect(await testERC20.balanceOf(await lotto.getAddress())).to.equal(0n)
+
+            // Seed jackpot
+            await expect(lotto.seedJackpot(seedJackpotMinValue))
+                .to.emit(lotto, 'JackpotSeeded')
+                .withArgs(deployer.address, seedJackpotMinValue)
+            // Accounting & actual balances
+            expect(await lotto.jackpot()).to.equal(seedJackpotMinValue)
+            expect(await testERC20.balanceOf(await lotto.getAddress())).to.equal(
+                seedJackpotMinValue,
+            )
+        })
+
+        it('should revert if seeding jackpot with an amount below the minimum (DoS vector)', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            const seedJackpotMinValue = await lotto.seedJackpotMinValue()
+            await expect(lotto.seedJackpot(seedJackpotMinValue - 1n)).to.be.revertedWithCustomError(
+                lotto,
+                'InsufficientJackpotSeed',
+            )
+        })
+
+        it('should enforce seed jackpot cooldown', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                shouldSkipSeedJackpot: true,
+            })
+            const seedJackpotMinValue = await lotto.seedJackpotMinValue()
+            await testERC20.mint(deployer.address, seedJackpotMinValue * 10n)
+            await testERC20.approve(await lotto.getAddress(), seedJackpotMinValue * 10n)
+            // 1st attempt should succeed
+            await expect(lotto.seedJackpot(seedJackpotMinValue))
+                .to.emit(lotto, 'JackpotSeeded')
+                .withArgs(deployer.address, seedJackpotMinValue)
+            // 2nd attempt - before cooldown
+            await expect(lotto.seedJackpot(seedJackpotMinValue)).to.be.revertedWithCustomError(
+                lotto,
+                'RateLimited',
+            )
+            // 3rd attempt, after waiting for cooldown
+            await time.increase(await lotto.seedJackpotDelay())
+            await expect(lotto.seedJackpot(seedJackpotMinValue))
+                .to.emit(lotto, 'JackpotSeeded')
+                .withArgs(deployer.address, seedJackpotMinValue)
+        })
+    })
+
     describe('#_pickTickets', () => {
-        //
+        // NB: _pickTickets doesn't deal with payment interactions (i.e. ERC-20 transfers)
+        it('should revert if called in any state other than Purchase', async () => {
+            const { lotto } = await deployUninitialisedLootery(deployer)
+            const allOtherStates = allStates.filter((state) => state !== GameState.Purchase)
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await expect(
+                    lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }], 0n),
+                )
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
     })
 
     describe('#purchaseTicket', () => {
@@ -234,9 +327,11 @@ describe.only('Lootery', () => {
 })
 
 async function deployUninitialisedLootery(deployer: SignerWithAddress) {
-    return deployProxy({
-        deployer,
-        implementation: Lootery__factory,
-        initData: '0x',
-    })
+    return {
+        lotto: await deployProxy({
+            deployer,
+            implementation: LooteryHarness__factory,
+            initData: '0x',
+        }),
+    }
 }

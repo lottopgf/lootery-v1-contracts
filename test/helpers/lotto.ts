@@ -1,7 +1,7 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
     Lootery,
-    Lootery__factory,
+    LooteryHarness__factory,
     MockRandomiser__factory,
     TestERC20,
     TicketSVGRenderer__factory,
@@ -37,8 +37,8 @@ export async function deployLotto({
     const ticketSVGRenderer = await new TicketSVGRenderer__factory(deployer).deploy()
     const lotto = await deployProxy({
         deployer,
-        implementation: Lootery__factory,
-        initData: Lootery__factory.createInterface().encodeFunctionData('init', [
+        implementation: LooteryHarness__factory,
+        initData: LooteryHarness__factory.createInterface().encodeFunctionData('init', [
             {
                 owner: deployer.address,
                 name: 'Lotto',

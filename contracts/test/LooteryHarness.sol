@@ -18,4 +18,8 @@ contract LooteryHarness is Lootery {
     function setupNextGame() external {
         _setupNextGame();
     }
+
+    function setGameState(GameState state) external {
+        currentGame.state = state;
+    }
 }
