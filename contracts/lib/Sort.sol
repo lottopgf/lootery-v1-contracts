@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity ^0.8.23;
 
 library Sort {
     /// @notice Sort a small array (insertion sort -> O(n^2))

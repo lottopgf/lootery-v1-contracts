@@ -34,5 +34,5 @@ jobs:
         with:
           node-version: 18
           slither-version: 0.10.2
-          solc-version: 0.8.23
+          solc-version: 0.8.27
           fail-on: none

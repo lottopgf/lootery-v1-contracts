@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.23;
+pragma solidity 0.8.27;
 
 import {Lootery} from "../Lootery.sol";
 import {IWETH9} from "../interfaces/IWETH9.sol";
