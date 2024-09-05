@@ -101,6 +101,11 @@ contract Lootery is
         _disableInitializers();
     }
 
+    /// @dev The contract should be able to receive Ether to pay for VRF.
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
     modifier onlyInState(GameState state) {
         if (currentGame.state != state) {
             revert UnexpectedState(currentGame.state);
@@ -159,14 +164,6 @@ contract Lootery is
         });
     }
 
-    /// @notice Determine if game is active (in any playable state). If this
-    ///     returns `false`, it means that the lottery is no longer playable.
-    /// @dev This is a helper function exposed for frontend (also for legacy
-    ///     reasons). Check the game state directly in the contract.
-    function isGameActive() external view returns (bool) {
-        return currentGame.state != GameState.Dead;
-    }
-
     /// @notice Seed the jackpot.
     /// @dev We allow seeding jackpot during purchase phase only, so we don't
     ///     have to fuck around with accounting
@@ -194,21 +191,69 @@ contract Lootery is
         emit JackpotSeeded(msg.sender, value);
     }
 
-    /// @notice Helper to parse a pick id into a pick array
-    /// @param pickId Pick id
-    function computePicks(
-        uint256 pickId
-    ) public view returns (uint8[] memory picks) {
-        return Pick.parse(numPicks, pickId);
+    /// @notice Pick tickets and increase jackpot
+    /// @param tickets Tickets!
+    /// @param jackpotShare Amount of jackpot fees generated from purchase.
+    function _pickTickets(
+        Ticket[] calldata tickets,
+        uint256 jackpotShare
+    ) internal onlyInState(GameState.Purchase) {
+        CurrentGame memory currentGame_ = currentGame;
+        uint256 currentGameId = currentGame_.id;
+
+        uint256 ticketsCount = tickets.length;
+        Game memory game = gameData[currentGameId];
+        jackpot += jackpotShare;
+        gameData[currentGameId] = Game({
+            ticketsSold: game.ticketsSold + uint64(ticketsCount),
+            startedAt: game.startedAt,
+            winningPickId: game.winningPickId
+        });
+
+        uint256 numPicks_ = numPicks;
+        uint256 maxBallValue_ = maxBallValue;
+        uint256 startingTokenId = currentTokenId + 1;
+        currentTokenId += ticketsCount;
+        for (uint256 t; t < ticketsCount; ++t) {
+            address whomst = tickets[t].whomst;
+            uint8[] memory picks = tickets[t].picks;
+
+            if (picks.length != numPicks_) {
+                revert InvalidNumPicks(picks.length);
+            }
+
+            // Assert picks are ascendingly sorted, with no possibility of duplicates
+            uint8 lastPick;
+            for (uint256 i; i < numPicks_; ++i) {
+                uint8 pick = picks[i];
+                if (pick <= lastPick) revert UnsortedPicks(picks);
+                if (pick > maxBallValue_) revert InvalidBallValue(pick);
+                lastPick = pick;
+            }
+
+            // Record picked numbers
+            uint256 tokenId = startingTokenId + t;
+            uint256 pickId = Pick.id(picks);
+            purchasedTickets[tokenId] = PurchasedTicket({
+                gameId: currentGameId,
+                pickId: pickId
+            });
+
+            // Account for this pick set
+            tokenByPickIdentity[currentGameId][pickId].push(tokenId);
+            emit TicketPurchased(currentGameId, whomst, tokenId, picks);
+        }
+        // Effects
+        for (uint256 t; t < ticketsCount; ++t) {
+            address whomst = tickets[t].whomst;
+            _safeMint(whomst, startingTokenId + t);
+        }
     }
 
-    /// @notice Helper to compute the winning numbers/balls given a random seed.
-    /// @param randomSeed Seed that determines the permutation of BALLS
-    /// @return balls Ordered set of winning numbers
-    function computeWinningBalls(
-        uint256 randomSeed
-    ) public view returns (uint8[] memory balls) {
-        return Pick.draw(numPicks, maxBallValue, randomSeed);
+    /// @notice Allow owner to pick tickets for free.
+    /// @param tickets Tickets!
+    function ownerPick(Ticket[] calldata tickets) external onlyOwner {
+        _pickTickets(tickets, 0);
     }
 
     /// @notice Purchase a ticket
@@ -506,12 +551,6 @@ contract Lootery is
         _transferOrBust(msg.sender, totalAccrued);
     }
 
-    /// @notice Allow owner to pick tickets for free.
-    /// @param tickets Tickets!
-    function ownerPick(Ticket[] calldata tickets) external onlyOwner {
-        _pickTickets(tickets, 0);
-    }
-
     /// @notice Set this game as the last game of the lottery.
     ///     aka invoke apocalypse mode.
     function kill() external onlyOwner onlyInState(GameState.Purchase) {
@@ -556,68 +595,21 @@ contract Lootery is
         IERC20(prizeToken).safeTransfer(to, value);
     }
 
-    /// @notice Pick tickets and increase jackpot
-    /// @param tickets Tickets!
-    /// @param jackpotShare Amount of jackpot fees generated from purchase.
-    function _pickTickets(
-        Ticket[] calldata tickets,
-        uint256 jackpotShare
-    ) internal onlyInState(GameState.Purchase) {
-        CurrentGame memory currentGame_ = currentGame;
-        uint256 currentGameId = currentGame_.id;
-
-        uint256 ticketsCount = tickets.length;
-        Game memory game = gameData[currentGameId];
-        jackpot += jackpotShare;
-        gameData[currentGameId] = Game({
-            ticketsSold: game.ticketsSold + uint64(ticketsCount),
-            startedAt: game.startedAt,
-            winningPickId: game.winningPickId
-        });
-
-        uint256 numPicks_ = numPicks;
-        uint256 maxBallValue_ = maxBallValue;
-        uint256 startingTokenId = currentTokenId + 1;
-        currentTokenId += ticketsCount;
-        for (uint256 t; t < ticketsCount; ++t) {
-            address whomst = tickets[t].whomst;
-            uint8[] memory picks = tickets[t].picks;
-
-            if (picks.length != numPicks_) {
-                revert InvalidNumPicks(picks.length);
-            }
-
-            // Assert picks are ascendingly sorted, with no possibility of duplicates
-            uint8 lastPick;
-            for (uint256 i; i < numPicks_; ++i) {
-                uint8 pick = picks[i];
-                if (pick <= lastPick) revert UnsortedPicks(picks);
-                if (pick > maxBallValue_) revert InvalidBallValue(pick);
-                lastPick = pick;
-            }
-
-            // Record picked numbers
-            uint256 tokenId = startingTokenId + t;
-            uint256 pickId = Pick.id(picks);
-            purchasedTickets[tokenId] = PurchasedTicket({
-                gameId: currentGameId,
-                pickId: pickId
-            });
-
-            // Account for this pick set
-            tokenByPickIdentity[currentGameId][pickId].push(tokenId);
-            emit TicketPurchased(currentGameId, whomst, tokenId, picks);
-        }
-        // Effects
-        for (uint256 t; t < ticketsCount; ++t) {
-            address whomst = tickets[t].whomst;
-            _safeMint(whomst, startingTokenId + t);
-        }
+    /// @notice Helper to parse a pick id into a pick array
+    /// @param pickId Pick id
+    function computePicks(
+        uint256 pickId
+    ) public view returns (uint8[] memory picks) {
+        return Pick.parse(numPicks, pickId);
     }
 
-    /// @dev The contract should be able to receive Ether to pay for VRF.
-    receive() external payable {
-        emit Received(msg.sender, msg.value);
+    /// @notice Helper to compute the winning numbers/balls given a random seed.
+    /// @param randomSeed Seed that determines the permutation of BALLS
+    /// @return balls Ordered set of winning numbers
+    function computeWinningBalls(
+        uint256 randomSeed
+    ) public view returns (uint8[] memory balls) {
+        return Pick.draw(numPicks, maxBallValue, randomSeed);
     }
 
     /// @notice Set the SVG renderer for tickets (privileged)
@@ -638,6 +630,14 @@ contract Lootery is
     /// @param renderer Address of renderer contract
     function setTicketSVGRenderer(address renderer) external onlyOwner {
         _setTicketSVGRenderer(renderer);
+    }
+
+    /// @notice Determine if game is active (in any playable state). If this
+    ///     returns `false`, it means that the lottery is no longer playable.
+    /// @dev This is a helper function exposed for frontend (also for legacy
+    ///     reasons). Check the game state directly in the contract.
+    function isGameActive() external view returns (bool) {
+        return currentGame.state != GameState.Dead;
     }
 
     /// @notice See {ERC721-tokenURI}
