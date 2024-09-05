@@ -564,11 +564,6 @@ contract Lootery is
 
         uint256 ticketsCount = tickets.length;
         Game memory game = gameData[currentGameId];
-        if (uint256(game.ticketsSold) + ticketsCount > type(uint64).max) {
-            revert TicketsSoldOverflow(
-                uint256(game.ticketsSold) + ticketsCount
-            );
-        }
         jackpot += jackpotShare;
         gameData[currentGameId] = Game({
             ticketsSold: game.ticketsSold + uint64(ticketsCount),

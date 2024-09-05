@@ -135,7 +135,6 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error InsufficientRandomWords();
     error NoWin(uint256 pickId, uint256 winningPickId);
     error WaitLonger(uint256 deadline);
-    error TicketsSoldOverflow(uint256 value);
     error InsufficientOperationalFunds(uint256 have, uint256 want);
     error ClaimWindowMissed(uint256 tokenId);
     error GameInactive();
