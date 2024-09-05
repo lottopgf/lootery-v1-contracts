@@ -8,11 +8,8 @@ contract LooteryHarness is Lootery {
         require(block.chainid == 31337, "Test only");
     }
 
-    function pickTickets(
-        Ticket[] calldata tickets,
-        uint256 jackpotShare
-    ) external {
-        return _pickTickets(tickets, jackpotShare);
+    function pickTickets(Ticket[] calldata tickets) external {
+        return _pickTickets(tickets);
     }
 
     function setupNextGame() external {

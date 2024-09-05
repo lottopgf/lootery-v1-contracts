@@ -70,8 +70,8 @@ contract Lootery is
     /// @notice Ticket SVG renderer
     address public ticketSVGRenderer;
 
-    /// @dev Current token id
-    uint256 private currentTokenId;
+    /// @dev Total supply of tokens/tickets, also used to determine next tokenId
+    uint256 public totalSupply;
     /// @notice Current state of the game
     CurrentGame public currentGame;
     /// @notice Running jackpot
@@ -194,17 +194,14 @@ contract Lootery is
 
     /// @notice Pick tickets and increase jackpot
     /// @param tickets Tickets!
-    /// @param jackpotShare Amount of jackpot fees generated from purchase.
     function _pickTickets(
-        Ticket[] calldata tickets,
-        uint256 jackpotShare
+        Ticket[] calldata tickets
     ) internal onlyInState(GameState.Purchase) {
         CurrentGame memory currentGame_ = currentGame;
         uint256 currentGameId = currentGame_.id;
 
         uint256 ticketsCount = tickets.length;
         Game memory game = gameData[currentGameId];
-        jackpot += jackpotShare;
         gameData[currentGameId] = Game({
             ticketsSold: game.ticketsSold + uint64(ticketsCount),
             startedAt: game.startedAt,
@@ -213,8 +210,8 @@ contract Lootery is
 
         uint256 numPicks_ = numPicks;
         uint256 maxBallValue_ = maxBallValue;
-        uint256 startingTokenId = currentTokenId + 1;
-        currentTokenId += ticketsCount;
+        uint256 startingTokenId = totalSupply + 1;
+        totalSupply += ticketsCount;
         for (uint256 t; t < ticketsCount; ++t) {
             address whomst = tickets[t].whomst;
             uint8[] memory picks = tickets[t].picks;
@@ -254,7 +251,7 @@ contract Lootery is
     /// @notice Allow owner to pick tickets for free.
     /// @param tickets Tickets!
     function ownerPick(Ticket[] calldata tickets) external onlyOwner {
-        _pickTickets(tickets, 0);
+        _pickTickets(tickets);
     }
 
     /// @notice Purchase a ticket
@@ -284,7 +281,8 @@ contract Lootery is
             communityFeeShare
         );
 
-        _pickTickets(tickets, jackpotShare);
+        jackpot += jackpotShare;
+        _pickTickets(tickets);
     }
 
     /// @notice Draw numbers, picking potential jackpot winners and ending the

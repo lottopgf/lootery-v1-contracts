@@ -260,12 +260,104 @@ describe.only('Lootery', () => {
             const allOtherStates = allStates.filter((state) => state !== GameState.Purchase)
             for (const state of allOtherStates) {
                 await lotto.setGameState(state)
-                await expect(
-                    lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }], 0n),
-                )
+                await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }]))
                     .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
                     .withArgs(state)
             }
+        })
+
+        it('should mint valid tickets', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await lotto.setGameState(GameState.Purchase)
+
+            const game = await lotto.currentGame()
+            const gameData0 = await lotto.gameData(game.id)
+            const totalSupply0 = await lotto.totalSupply()
+
+            // Pick 3 tickets
+            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }]))
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(game.id, bob.address, 1n, [1, 2, 3, 4, 5])
+            const pickTicketTx2 = await lotto.pickTickets([
+                { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                { whomst: bob.address, picks: [3, 4, 5, 6, 7] },
+            ])
+            await expect(pickTicketTx2)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(game.id, alice.address, 2n, [2, 3, 4, 5, 6])
+            await expect(pickTicketTx2)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(game.id, bob.address, 3n, [3, 4, 5, 6, 7])
+
+            const gameData = await lotto.gameData(game.id)
+            expect(gameData.ticketsSold).to.equal(gameData0.ticketsSold + 3n)
+            expect(gameData.startedAt).to.equal(gameData0.startedAt)
+            expect(gameData.winningPickId).to.equal(gameData0.winningPickId)
+            expect(await lotto.totalSupply()).to.equal(totalSupply0 + 3n)
+
+            // NFTs minted
+            expect(await lotto.ownerOf(1n)).to.equal(bob.address)
+            expect(await lotto.ownerOf(2n)).to.equal(alice.address)
+            expect(await lotto.ownerOf(3n)).to.equal(bob.address)
+        })
+
+        it('should revert if ticket has invalid pick length', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await lotto.setGameState(GameState.Purchase)
+            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5, 6] }]))
+                .to.be.revertedWithCustomError(lotto, 'InvalidNumPicks')
+                .withArgs(6)
+            // Ensure it still reverts even if there is a valid pick in there
+            await expect(
+                lotto.pickTickets([
+                    { whomst: bob.address, picks: [1, 2, 3, 4, 5] },
+                    { whomst: bob.address, picks: [1, 2, 3, 4, 5, 6] },
+                ]),
+            )
+                .to.be.revertedWithCustomError(lotto, 'InvalidNumPicks')
+                .withArgs(6)
+        })
+
+        it('should revert if ticket has duplicate picks', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await lotto.setGameState(GameState.Purchase)
+            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 1, 3, 4, 5] }]))
+                .to.be.revertedWithCustomError(lotto, 'UnsortedPicks')
+                .withArgs([1, 1, 3, 4, 5])
+        })
+
+        it('should revert if pick has invalid numbers', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await lotto.setGameState(GameState.Purchase)
+            // 0 is invalid
+            // NB: The revert message is "UnsortedPicks" because the `lastPick` is initialised as 0,
+            // and the code asserts strict ordering i.e. `lastPick < picks[i]`
+            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [0, 1, 3, 4, 5] }]))
+                .to.be.revertedWithCustomError(lotto, 'UnsortedPicks')
+                .withArgs([0, 1, 3, 4, 5])
+            // Over the max ball value
+            const maxBallValue = await lotto.maxBallValue()
+            await expect(
+                lotto.pickTickets([
+                    { whomst: bob.address, picks: [1, 3, 4, 5, maxBallValue + 1n] },
+                ]),
+            ).to.be.revertedWithCustomError(lotto, 'InvalidBallValue')
         })
     })
 
