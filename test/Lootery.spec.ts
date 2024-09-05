@@ -361,12 +361,109 @@ describe.only('Lootery', () => {
         })
     })
 
-    describe('#purchaseTicket', () => {
-        //
+    describe('#ownerPick', () => {
+        it('should revert if not called by owner', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await expect(
+                lotto
+                    .connect(bob /** bob's not the owner */)
+                    .ownerPick([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }]),
+            ).to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+        })
+
+        it('should mint valid tickets if called by owner', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await expect(lotto.ownerPick([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }]))
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, alice.address, 1n, [1, 2, 3, 4, 5])
+            expect(await lotto.ownerOf(1n)).to.equal(alice.address)
+        })
     })
 
-    describe('#ownerPick', () => {
-        //
+    describe('#purchase', () => {
+        it('should take tokens for payment and mint tickets (no beneficiary)', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                shouldSkipSeedJackpot: true /** make sure it's empty initially */,
+            })
+            const ticketPrice = await lotto.ticketPrice()
+            await testERC20.mint(deployer.address, ticketPrice * 100n)
+            await testERC20.approve(await lotto.getAddress(), ticketPrice * 100n)
+
+            // Purchase 2 tickets
+            await expect(
+                lotto.purchase(
+                    [
+                        { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
+                        { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                    ],
+                    ZeroAddress,
+                ),
+            )
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, alice.address, 1n, [1, 2, 3, 4, 5])
+
+            const totalPurchasePrice = ticketPrice * 2n
+            const communityShare = (totalPurchasePrice * (await lotto.communityFeeBps())) / 10000n
+            const jackpotShare = totalPurchasePrice - communityShare
+            // Internal accounting
+            expect(await lotto.accruedCommunityFees()).to.eq(communityShare)
+            expect(await lotto.jackpot()).to.eq(jackpotShare)
+
+            // Actual ERC-20 balance (combined)
+            expect(await testERC20.balanceOf(await lotto.getAddress())).to.eq(totalPurchasePrice)
+        })
+
+        it('should take tokens for payment and mint tickets, and transfer to beneficiary when specified', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                shouldSkipSeedJackpot: true /** make sure it's empty initially */,
+            })
+            const ticketPrice = await lotto.ticketPrice()
+            await testERC20.mint(deployer.address, ticketPrice * 100n)
+            await testERC20.approve(await lotto.getAddress(), ticketPrice * 100n)
+            const beneficiaryBalance = await testERC20.balanceOf(beneficiary.address)
+
+            // Purchase 2 tickets
+            const tx = lotto.purchase(
+                [
+                    { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
+                    { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                ],
+                beneficiary.address,
+            )
+            await expect(tx)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, alice.address, 1n, [1, 2, 3, 4, 5])
+
+            const totalPurchasePrice = ticketPrice * 2n
+            const communityShare = (totalPurchasePrice * (await lotto.communityFeeBps())) / 10000n
+            const jackpotShare = totalPurchasePrice - communityShare
+            // Internal accounting
+            await expect(tx)
+                .to.emit(lotto, 'BeneficiaryPaid')
+                .withArgs(0, beneficiary.address, communityShare)
+            expect(await lotto.accruedCommunityFees()).to.eq(0n) // Transferred to beneficiary instead
+            expect(await lotto.jackpot()).to.eq(jackpotShare)
+
+            // Actual ERC-20 balances (combined)
+            expect(await testERC20.balanceOf(await lotto.getAddress())).to.eq(jackpotShare)
+            expect(await testERC20.balanceOf(beneficiary.address)).to.eq(
+                beneficiaryBalance + communityShare,
+            )
+        })
     })
 
     describe('#draw', () => {
