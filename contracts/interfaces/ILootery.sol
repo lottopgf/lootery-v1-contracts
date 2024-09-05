@@ -27,10 +27,15 @@ interface ILootery is IRandomiserCallback, IERC721 {
 
     /// @notice Current state of the lootery
     enum GameState {
+        /// @notice Unitialised state, i.e. before the `init` function
+        ///     has been called
+        Uninitialised,
         /// @notice This is the only state where the jackpot can increase
         Purchase,
         /// @notice Waiting for VRF fulfilment
-        DrawPending
+        DrawPending,
+        /// @notice Lootery is closed (forever)
+        Dead
     }
 
     struct CurrentGame {
@@ -127,7 +132,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error UnsortedPicks(uint8[] picks);
     error InvalidBallValue(uint256 ballValue);
     error GameAlreadyDrawn();
-    error UnexpectedState(GameState actual, GameState expected);
+    error UnexpectedState(GameState actual);
     error RequestAlreadyInFlight(uint256 requestId, uint256 timestamp);
     error RequestIdOverflow(uint256 requestId);
     error CallerNotRandomiser(address caller);
