@@ -101,6 +101,13 @@ contract Lootery is
         _disableInitializers();
     }
 
+    modifier onlyInState(GameState state) {
+        if (currentGame.state != state) {
+            revert UnexpectedState(currentGame.state);
+        }
+        _;
+    }
+
     /// @notice Initialisoooooooor
     function init(InitConfig memory initConfig) public override initializer {
         __Ownable_init(initConfig.owner);
@@ -155,8 +162,7 @@ contract Lootery is
     /// @notice Determine if game is active (in any playable state). If this
     ///     returns `false`, it means that the lottery is no longer playable.
     function isGameActive() public view returns (bool) {
-        uint256 apocalypseGameId_ = apocalypseGameId;
-        return !(apocalypseGameId_ != 0 && currentGame.id >= apocalypseGameId_);
+        return currentGame.state != GameState.Dead;
     }
 
     /// @notice See {Lootery-isGameActive}
@@ -167,17 +173,14 @@ contract Lootery is
     }
 
     /// @notice Seed the jackpot.
+    /// @dev We allow seeding jackpot during purchase phase only, so we don't
+    ///     have to fuck around with accounting
     /// @notice NB: This function is rate-limited by `jackpotLastSeededAt`!
     /// @param value Amount of `prizeToken` to be taken from the caller and
     ///     added to the jackpot.
-    function seedJackpot(uint256 value) external {
-        _assertGameIsActive();
-        // We allow seeding jackpot during purchase phase only, so we don't
-        // have to fuck around with accounting
-        if (currentGame.state != GameState.Purchase) {
-            revert UnexpectedState(currentGame.state, GameState.Purchase);
-        }
-
+    function seedJackpot(
+        uint256 value
+    ) external onlyInState(GameState.Purchase) {
         // Disallow seeding the jackpot with zero value
         if (value < seedJackpotMinValue) {
             revert InsufficientJackpotSeed(value);
@@ -252,7 +255,7 @@ contract Lootery is
         // Assert we're in the correct state
         CurrentGame memory currentGame_ = currentGame;
         if (currentGame_.state != GameState.Purchase) {
-            revert UnexpectedState(currentGame_.state, GameState.Purchase);
+            revert UnexpectedState(currentGame_.state);
         }
         Game memory game = gameData[currentGame_.id];
         // Assert that the game is actually over
@@ -341,7 +344,7 @@ contract Lootery is
             revert CallerNotRandomiser(msg.sender);
         }
         if (currentGame.state != GameState.DrawPending) {
-            revert UnexpectedState(currentGame.state, GameState.DrawPending);
+            revert UnexpectedState(currentGame.state);
         }
         if (randomnessRequest.requestId != requestId) {
             revert RequestIdMismatch(requestId, randomnessRequest.requestId);
@@ -367,51 +370,61 @@ contract Lootery is
     /// @dev Transition to next game, locking and/or rolling over any jackpots
     ///     as necessary.
     function _setupNextGame() internal {
+        // Current game id, before the state transition
         uint248 gameId = currentGame.id;
 
-        // Ready for next game
-        currentGame = CurrentGame({state: GameState.Purchase, id: gameId + 1});
+        GameState nextState;
+        if (apocalypseGameId == gameId + 1) {
+            // Apocalypse mode, kill game forever
+            nextState = GameState.Dead;
+        } else {
+            // Otherwise, ready for next game
+            nextState = GameState.Purchase;
+        }
 
-        // Set up next game
+        // Initialise data for next game
+        currentGame = CurrentGame({state: nextState, id: gameId + 1});
         gameData[gameId + 1] = Game({
             ticketsSold: 0,
             startedAt: uint64(block.timestamp),
             winningPickId: 0
         });
 
-        // Roll over jackpot if no winner
+        // Jackpot accounting: rollover jackpot if no winner
         uint256 winningPickId = gameData[gameId].winningPickId;
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
-        if (numWinners == 0 && !isGameActive()) {
-            // No winners, but apocalypse mode
-            uint256 nextJackpot = 0;
-            uint256 nextUnclaimedPayouts = currentUnclaimedPayouts +
-                currentJackpot;
-            jackpot = 0;
-            unclaimedPayouts = nextUnclaimedPayouts;
-            emit JackpotRollover(
-                gameId,
-                currentUnclaimedPayouts,
-                currentJackpot,
-                nextUnclaimedPayouts,
-                nextJackpot
-            );
-        } else if (numWinners == 0) {
-            // No winners, current jackpot and unclaimed payouts are rolled
-            // over to the next game
-            uint256 nextJackpot = currentUnclaimedPayouts + currentJackpot;
-            uint256 nextUnclaimedPayouts = 0;
-            jackpot = nextJackpot;
-            unclaimedPayouts = 0;
-            emit JackpotRollover(
-                gameId,
-                currentUnclaimedPayouts,
-                currentJackpot,
-                nextUnclaimedPayouts,
-                nextJackpot
-            );
+        if (numWinners == 0) {
+            if (nextState == GameState.Dead) {
+                // No winners, but apocalypse mode
+                uint256 nextJackpot = 0;
+                uint256 nextUnclaimedPayouts = currentUnclaimedPayouts +
+                    currentJackpot;
+                jackpot = 0;
+                unclaimedPayouts = nextUnclaimedPayouts;
+                emit JackpotRollover(
+                    gameId,
+                    currentUnclaimedPayouts,
+                    currentJackpot,
+                    nextUnclaimedPayouts,
+                    nextJackpot
+                );
+            } else {
+                // No winners, current jackpot and unclaimed payouts are rolled
+                // over to the next game
+                uint256 nextJackpot = currentUnclaimedPayouts + currentJackpot;
+                uint256 nextUnclaimedPayouts = 0;
+                jackpot = nextJackpot;
+                unclaimedPayouts = 0;
+                emit JackpotRollover(
+                    gameId,
+                    currentUnclaimedPayouts,
+                    currentJackpot,
+                    nextUnclaimedPayouts,
+                    nextJackpot
+                );
+            }
         } else {
             // Winners! Jackpot resets to zero for next game, and current
             // jackpot goes into unclaimed payouts
@@ -431,10 +444,14 @@ contract Lootery is
     /// @notice Claim a share of the jackpot with a winning ticket.
     /// @param tokenId Token id of the ticket (will be burnt)
     function claimWinnings(uint256 tokenId) external {
-        // Only allow claims during purchase phase so we don't have to deal
-        // with intermediate states between gameIds
-        if (currentGame.state != GameState.Purchase) {
-            revert UnexpectedState(currentGame.state, GameState.Purchase);
+        // Only allow claims during Purchase state so we don't have to deal
+        // with intermediate states between gameIds.
+        // Dead state is also ok since the entire game has ended forever.
+        if (
+            currentGame.state != GameState.Purchase &&
+            currentGame.state != GameState.Dead
+        ) {
+            revert UnexpectedState(currentGame.state);
         }
 
         address whomst = _ownerOf(tokenId);
@@ -503,17 +520,12 @@ contract Lootery is
 
     /// @notice Set this game as the last game of the lottery.
     ///     aka invoke apocalypse mode.
-    function kill() external onlyOwner {
+    function kill() external onlyOwner onlyInState(GameState.Purchase) {
         if (apocalypseGameId != 0) {
             // Already set
             revert GameInactive();
         }
-
-        CurrentGame memory currentGame_ = currentGame;
-        if (currentGame_.state != GameState.Purchase) {
-            revert UnexpectedState(currentGame_.state, GameState.Purchase);
-        }
-        apocalypseGameId = currentGame_.id + 1;
+        apocalypseGameId = currentGame.id + 1;
     }
 
     /// @notice Withdraw any ETH (used for VRF requests).
@@ -556,11 +568,9 @@ contract Lootery is
     function _pickTickets(
         Ticket[] calldata tickets,
         uint256 jackpotShare
-    ) internal {
+    ) internal onlyInState(GameState.Purchase) {
         CurrentGame memory currentGame_ = currentGame;
         uint256 currentGameId = currentGame_.id;
-        // Assert game is still playable
-        _assertGameIsActive();
 
         uint256 ticketsCount = tickets.length;
         Game memory game = gameData[currentGameId];

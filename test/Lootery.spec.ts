@@ -34,6 +34,7 @@ import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 import { encrypt } from '@kevincharm/gfc-fpe'
 import crypto from 'node:crypto'
+import { GameState } from './helpers/GameState'
 
 describe('Lootery', () => {
     let mockRandomiser: MockRandomiser
@@ -697,15 +698,16 @@ describe('Lootery', () => {
             expect(await lotto.computeWinningBalls(seed)).to.deep.eq(picks[0][1] /** bob's */)
 
             // Game no longer active -> no longer possible to do the following actions
-            await expect(lotto.kill()).to.be.revertedWithCustomError(lotto, 'GameInactive')
-            await expect(lotto.seedJackpot(parseEther('10'))).to.be.revertedWithCustomError(
-                lotto,
-                'GameInactive',
-            )
+            await expect(lotto.kill())
+                .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                .withArgs(GameState.Dead)
+            await expect(lotto.seedJackpot(parseEther('10')))
+                .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                .withArgs(GameState.Dead)
             await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'GameInactive')
             await expect(
                 purchaseTicket(lotto, bob.address, [1, 2, 3, 4, 5]),
-            ).to.be.revertedWithCustomError(lotto, 'GameInactive')
+            ).to.be.revertedWithCustomError(lotto, 'UnexpectedState')
 
             // Bob has the winning ticket
             const unclaimedPayouts = await lotto.unclaimedPayouts()
@@ -767,15 +769,16 @@ describe('Lootery', () => {
             expect(await lotto.isGameActive()).to.eq(false)
 
             // Game no longer active -> no longer possible to do the following actions
-            await expect(lotto.kill()).to.be.revertedWithCustomError(lotto, 'GameInactive')
-            await expect(lotto.seedJackpot(parseEther('10'))).to.be.revertedWithCustomError(
-                lotto,
-                'GameInactive',
-            )
+            await expect(lotto.kill())
+                .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                .withArgs(GameState.Dead)
+            await expect(lotto.seedJackpot(parseEther('10')))
+                .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                .withArgs(GameState.Dead)
             await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'GameInactive')
             await expect(
                 purchaseTicket(lotto, bob.address, [1, 2, 3, 4, 5]),
-            ).to.be.revertedWithCustomError(lotto, 'GameInactive')
+            ).to.be.revertedWithCustomError(lotto, 'UnexpectedState')
 
             // No winners -> each ticket claims share of jackpot
             const unclaimedPayouts = await lotto.unclaimedPayouts()
