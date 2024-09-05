@@ -165,13 +165,6 @@ contract Lootery is
         return currentGame.state != GameState.Dead;
     }
 
-    /// @notice See {Lootery-isGameActive}
-    function _assertGameIsActive() internal view {
-        if (!isGameActive()) {
-            revert GameInactive();
-        }
-    }
-
     /// @notice Seed the jackpot.
     /// @dev We allow seeding jackpot during purchase phase only, so we don't
     ///     have to fuck around with accounting
@@ -248,9 +241,8 @@ contract Lootery is
 
     /// @notice Draw numbers, picking potential jackpot winners and ending the
     ///     current game. This should be automated by a keeper.
-    function draw() external {
+    function draw() external onlyInState(GameState.Purchase) {
         uint256 gasUsed = gasleft();
-        _assertGameIsActive();
         // Assert game is still playable
         // Assert we're in the correct state
         CurrentGame memory currentGame_ = currentGame;

@@ -704,7 +704,7 @@ describe('Lootery', () => {
             await expect(lotto.seedJackpot(parseEther('10')))
                 .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
                 .withArgs(GameState.Dead)
-            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'GameInactive')
+            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'UnexpectedState')
             await expect(
                 purchaseTicket(lotto, bob.address, [1, 2, 3, 4, 5]),
             ).to.be.revertedWithCustomError(lotto, 'UnexpectedState')
@@ -775,7 +775,7 @@ describe('Lootery', () => {
             await expect(lotto.seedJackpot(parseEther('10')))
                 .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
                 .withArgs(GameState.Dead)
-            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'GameInactive')
+            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'UnexpectedState')
             await expect(
                 purchaseTicket(lotto, bob.address, [1, 2, 3, 4, 5]),
             ).to.be.revertedWithCustomError(lotto, 'UnexpectedState')
