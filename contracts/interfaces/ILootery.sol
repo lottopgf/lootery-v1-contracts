@@ -115,6 +115,8 @@ interface ILootery is IRandomiserCallback, IERC721 {
         uint256 nextUnclaimedPayouts,
         uint256 nextJackpot
     );
+    event AccruedCommunityFeesWithdrawn(address indexed to, uint256 amount);
+    event OperationalFundsWithdrawn(address indexed to, uint256 amount);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidNumPicks(uint256 numPicks);

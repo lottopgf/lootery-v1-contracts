@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat'
-import { time, setBalance } from '@nomicfoundation/hardhat-network-helpers'
+import { time, setBalance, impersonateAccount } from '@nomicfoundation/hardhat-network-helpers'
 import {
     LooteryFactory,
     LooteryFactory__factory,
@@ -14,6 +14,7 @@ import {
     LooteryHarness__factory,
     LooteryHarness,
     ERC20,
+    RevertingETHReceiver__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import { ZeroAddress, parseEther } from 'ethers'
@@ -860,11 +861,117 @@ describe('Lootery', () => {
     })
 
     describe('#withdrawAccruedFees', () => {
-        //
+        let lotto: LooteryHarness
+        beforeEach(async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if not called by owner', async () => {
+            await expect(lotto.connect(alice).withdrawAccruedFees())
+                .to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+                .withArgs(alice.address)
+        })
+
+        it('should withdra all accrued community fees', async () => {
+            const balance = await testERC20.balanceOf(deployer.address)
+            const fees = parseEther('10')
+            await lotto.setAccruedCommunityFees(fees)
+            await testERC20.mint(await lotto.getAddress(), fees)
+            await expect(lotto.withdrawAccruedFees())
+                .to.emit(lotto, 'AccruedCommunityFeesWithdrawn')
+                .withArgs(deployer.address, fees)
+            expect(await testERC20.balanceOf(deployer.address)).to.eq(balance + fees)
+        })
     })
 
     describe('#kill', () => {
-        //
+        let lotto: LooteryHarness
+        beforeEach(async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if not called by owner', async () => {
+            await expect(lotto.connect(alice).kill())
+                .to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+                .withArgs(alice.address)
+        })
+
+        it('should revert if called in any state other than Purchase', async () => {
+            const allOtherStates = allStates.filter((state) => state !== GameState.Purchase)
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await expect(lotto.kill())
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
+
+        it('should queue apocalypse mode', async () => {
+            await lotto.kill()
+            expect(await lotto.apocalypseGameId()).to.not.eq(0n)
+        })
+
+        it('should revert if apocalypse mode already queued', async () => {
+            await lotto.kill()
+            await expect(lotto.kill()).to.be.revertedWithCustomError(lotto, 'GameInactive')
+        })
+    })
+
+    describe('#rescueETH', () => {
+        let lotto: LooteryHarness
+        beforeEach(async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if not called by owner', async () => {
+            await expect(lotto.connect(alice).rescueETH())
+                .to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+                .withArgs(alice.address)
+        })
+
+        it('should revert if ETH transfer fails', async () => {
+            const opFunds = parseEther('10')
+            setBalance(await lotto.getAddress(), opFunds)
+            const _revertingReceiver = await new RevertingETHReceiver__factory(deployer).deploy()
+            await lotto.transferOwnership(await _revertingReceiver.getAddress())
+            await impersonateAccount(await _revertingReceiver.getAddress())
+            // This is now the owner, and will always revert upon receiving ETH
+            const revertingReceiver = await ethers.getSigner(await _revertingReceiver.getAddress())
+            setBalance(await revertingReceiver.getAddress(), parseEther('1'))
+
+            // Rescue ETH
+            const rescueTx = lotto.connect(revertingReceiver).rescueETH()
+            await expect(rescueTx).to.be.revertedWithCustomError(lotto, 'TransferFailure')
+        })
+
+        it('should rescue ETH', async () => {
+            const opFunds = parseEther('10')
+            setBalance(await lotto.getAddress(), opFunds)
+            const balance = await ethers.provider.getBalance(deployer.address)
+
+            // Rescue ETH
+            const rescueTx = lotto.rescueETH()
+            await expect(rescueTx)
+                .to.emit(lotto, 'OperationalFundsWithdrawn')
+                .withArgs(deployer.address, opFunds)
+            const receipt = await rescueTx.then((tx) => tx.wait())
+            const txGasFee = receipt!.cumulativeGasUsed * receipt!.gasPrice
+            expect(await ethers.provider.getBalance(deployer.address)).to.eq(
+                balance + opFunds - txGasFee,
+            )
+        })
     })
 
     describe('#rescueTokens', () => {

@@ -93,6 +93,7 @@ contract Lootery is
     /// @notice Accrued community fee share (wei)
     uint256 public accruedCommunityFees;
     /// @notice When nonzero, this gameId will be the last
+    ///     TODO: This could just be a bool
     uint256 public apocalypseGameId;
     /// @notice Timestamp of when jackpot was last seeded
     uint256 public jackpotLastSeededAt;
@@ -516,6 +517,7 @@ contract Lootery is
         uint256 totalAccrued = accruedCommunityFees;
         accruedCommunityFees = 0;
         IERC20(prizeToken).safeTransfer(msg.sender, totalAccrued);
+        emit AccruedCommunityFeesWithdrawn(msg.sender, totalAccrued);
     }
 
     /// @notice Set this game as the last game of the lottery.
@@ -530,12 +532,12 @@ contract Lootery is
 
     /// @notice Withdraw any ETH (used for VRF requests).
     function rescueETH() external onlyOwner {
-        (bool success, bytes memory data) = msg.sender.call{
-            value: address(this).balance
-        }("");
+        uint256 amount = address(this).balance;
+        (bool success, bytes memory data) = msg.sender.call{value: amount}("");
         if (!success) {
-            revert TransferFailure(msg.sender, address(this).balance, data);
+            revert TransferFailure(msg.sender, amount, data);
         }
+        emit OperationalFundsWithdrawn(msg.sender, amount);
     }
 
     /// @notice Allow owner to rescue any tokens sent to the contract;

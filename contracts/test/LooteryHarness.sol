@@ -24,6 +24,10 @@ contract LooteryHarness is Lootery {
         randomnessRequest = req;
     }
 
+    function setAccruedCommunityFees(uint256 amount) external {
+        accruedCommunityFees = amount;
+    }
+
     function setJackpot(uint256 amount) external {
         jackpot = amount;
     }
