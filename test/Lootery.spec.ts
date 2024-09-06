@@ -13,20 +13,20 @@ import {
     ILootery,
     LooteryHarness__factory,
     LooteryHarness,
+    ERC20,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { ZeroAddress, parseEther, parseUnits } from 'ethers'
+import { ZeroAddress, parseEther } from 'ethers'
 import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 import { GameState } from './helpers/GameState'
 import { computePickId, deployLotto } from './helpers/lotto'
-import crypto from 'node:crypto'
 
 const allStates = Object.values(GameState).filter(
     (key): key is number => typeof key === 'number',
 ) as GameState[]
 
-describe.only('Lootery', () => {
+describe('Lootery', () => {
     let mockRandomiser: MockRandomiser
     let testERC20: TestERC20
     let factory: LooteryFactory
@@ -618,7 +618,7 @@ describe.only('Lootery', () => {
         })
     })
 
-    describe.only('#_setupNextGame', () => {
+    describe('#_setupNextGame', () => {
         let lotto: LooteryHarness
         /** initial `currentGame` storage var */
         let game0: { state: bigint; id: bigint }
@@ -717,7 +717,139 @@ describe.only('Lootery', () => {
     })
 
     describe('#claimWinnings', () => {
-        //
+        let lotto: LooteryHarness
+        let prizeToken: ERC20
+        let fastForwardAndDraw: (randomness: bigint) => Promise<bigint[]>
+        beforeEach(async () => {
+            ;({ lotto, fastForwardAndDraw, prizeToken } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if called in any state other than Purchase or Dead', async () => {
+            const allOtherStates = allStates.filter(
+                (state) => state !== GameState.Purchase && state !== GameState.Dead,
+            )
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await expect(lotto.claimWinnings(1))
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
+
+        it('should burn NFT', async () => {
+            const receiver = ethers.Wallet.createRandom().address
+            // With seed=69420, the winning pick is [5,10,41,46,55]
+            const winningPick = Array.from(await lotto.computePicks(36101364786398240n))
+            const tokenId = (await lotto.totalSupply()) + 1n
+            await expect(lotto.pickTickets([{ whomst: receiver, picks: winningPick }]))
+                .to.emit(lotto, 'Transfer')
+                .withArgs(ethers.ZeroAddress, receiver, tokenId)
+            await fastForwardAndDraw(69420n)
+
+            expect(await lotto.ownerOf(tokenId)).to.eq(receiver)
+            // Claim winnings => burn NFT
+            await expect(lotto.claimWinnings(tokenId))
+                .to.emit(lotto, 'Transfer')
+                .withArgs(receiver, ethers.ZeroAddress, tokenId)
+            // Burnt <-> no longer owned
+            await expect(lotto.ownerOf(tokenId))
+                .to.be.revertedWithCustomError(lotto, 'ERC721NonexistentToken')
+                .withArgs(tokenId)
+        })
+
+        it('should revert if trying to claim winnings for nonexistent token', async () => {
+            const tokenId = (await lotto.totalSupply()) + 1n
+
+            // Claim winnings => burn NFT
+            await expect(lotto.claimWinnings(tokenId))
+                .to.be.revertedWithCustomError(lotto, 'ERC721NonexistentToken')
+                .withArgs(tokenId)
+        })
+
+        it('should revert if claim window has been missed', async () => {
+            const tokenId = (await lotto.totalSupply()) + 1n
+            const winningPick = Array.from(await lotto.computePicks(36101364786398240n))
+            await expect(lotto.pickTickets([{ whomst: alice.address, picks: winningPick }]))
+                .to.emit(lotto, 'Transfer')
+                .withArgs(ethers.ZeroAddress, alice.address, tokenId)
+            await fastForwardAndDraw(69420n)
+            // Don't claim & skip a game
+            // We need to pick at least 1 ticket otherwise the game will be skipped and no VRF
+            // request will be made
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await fastForwardAndDraw(99999n)
+
+            // Try to claim winnings from 2 games ago
+            await expect(lotto.claimWinnings(tokenId))
+                .to.be.revertedWithCustomError(lotto, 'ClaimWindowMissed')
+                .withArgs(tokenId)
+        })
+
+        it('should payout a share of the pot if there are no winners in Dead state', async () => {
+            const jackpot = await lotto.jackpot()
+            expect(jackpot).to.eq(parseEther('10')) // `deployLotto` sets initial jackpot to 10 ETH
+            const tickets = [
+                { whomst: deployer.address, picks: [1, 2, 3, 4, 5] },
+                { whomst: bob.address, picks: [2, 3, 4, 5, 6] },
+                { whomst: alice.address, picks: [3, 4, 5, 6, 7] },
+            ]
+            const pickTx = lotto.pickTickets(tickets)
+            for (let i = 0; i < tickets.length; i++) {
+                await expect(pickTx)
+                    .to.emit(lotto, 'Transfer')
+                    .withArgs(ethers.ZeroAddress, tickets[i].whomst, i + 1)
+            }
+            await lotto.kill() // trigger apocalypse mode
+            await fastForwardAndDraw(69420n)
+
+            // Claim each consolation prize for each ticket
+            for (let i = 0; i < tickets.length; i++) {
+                const balanceBefore = await prizeToken.balanceOf(tickets[i].whomst)
+                const jackpotShare = jackpot / BigInt(tickets.length)
+                await expect(lotto.claimWinnings(i + 1))
+                    .to.emit(lotto, 'ConsolationClaimed')
+                    .withArgs(i + 1, 0, tickets[i].whomst, jackpotShare)
+                expect(await prizeToken.balanceOf(tickets[i].whomst)).to.eq(
+                    balanceBefore + jackpotShare,
+                )
+            }
+        })
+
+        // TODO: Check more cases (multiple winners, odd/even number of winners, odd/even jackpot value, etc)
+        it('should payout a share of the pot for winning ticket', async () => {
+            const jackpot = await lotto.jackpot()
+            expect(jackpot).to.eq(parseEther('10')) // `deployLootery` sets initial jackpot to 10 ETH
+            const winningPick = Array.from(await lotto.computePicks(36101364786398240n))
+            // Alice has the only winning ticket
+            const tickets = [
+                { whomst: deployer.address, picks: [1n, 2n, 3n, 4n, 5n] },
+                { whomst: bob.address, picks: [2n, 3n, 4n, 5n, 6n] },
+                { whomst: alice.address, picks: winningPick },
+            ]
+            const pickTx = lotto.pickTickets(tickets)
+            for (let i = 0; i < tickets.length; i++) {
+                await expect(pickTx)
+                    .to.emit(lotto, 'Transfer')
+                    .withArgs(ethers.ZeroAddress, tickets[i].whomst, i + 1)
+            }
+            await fastForwardAndDraw(69420n)
+
+            // Alice claims her winnings (entire jackpot)
+            await expect(lotto.claimWinnings(3))
+                .to.emit(lotto, 'WinningsClaimed')
+                .withArgs(3, 0, alice.address, jackpot)
+            // Everyone else gets nothing
+            await expect(lotto.claimWinnings(1))
+                .to.emit(lotto, 'NoWin')
+                .withArgs(computePickId(tickets[0].picks), 36101364786398240n)
+            await expect(lotto.claimWinnings(2))
+                .to.emit(lotto, 'NoWin')
+                .withArgs(computePickId(tickets[1].picks), 36101364786398240n)
+        })
     })
 
     describe('#withdrawAccruedFees', () => {

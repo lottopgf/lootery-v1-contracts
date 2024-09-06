@@ -492,11 +492,8 @@ contract Lootery is
             uint256 prizeShare = unclaimedPayouts / game.ticketsSold;
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
             emit ConsolationClaimed(tokenId, ticket.gameId, whomst, prizeShare);
-            return;
-        }
-
-        if (winningPickId == ticket.pickId) {
-            // NB: `numWinners` != 0 in this path
+        } else if (winningPickId == ticket.pickId) {
+            assert(numWinners > 0);
             // This ticket did have the winning numbers
             uint256 prizeShare = unclaimedPayouts /
                 (numWinners - numClaimedWinningTickets);
@@ -509,9 +506,9 @@ contract Lootery is
 
             emit WinningsClaimed(tokenId, ticket.gameId, whomst, prizeShare);
             return;
+        } else {
+            emit NoWin(ticket.pickId, winningPickId);
         }
-
-        revert NoWin(ticket.pickId, winningPickId);
     }
 
     /// @notice Withdraw accrued community fees.

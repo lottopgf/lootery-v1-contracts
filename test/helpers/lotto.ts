@@ -1,6 +1,7 @@
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
     Lootery,
+    Lootery__factory,
     LooteryHarness__factory,
     MockRandomiser__factory,
     TestERC20,
@@ -9,7 +10,15 @@ import {
 import { deployProxy } from './deployProxy'
 import { encrypt } from '@kevincharm/gfc-fpe'
 import { time, setBalance } from '@nomicfoundation/hardhat-network-helpers'
-import { parseEther, hexlify, ethers, ZeroAddress, LogDescription, BigNumberish } from 'ethers'
+import {
+    parseEther,
+    hexlify,
+    ethers,
+    ZeroAddress,
+    LogDescription,
+    BigNumberish,
+    TransactionResponse,
+} from 'ethers'
 import crypto from 'node:crypto'
 
 export function computePickId(picks: bigint[]) {
@@ -93,6 +102,7 @@ export async function deployLotto({
         lotto,
         mockRandomiser,
         fastForwardAndDraw,
+        prizeToken,
     }
 }
 
@@ -190,4 +200,25 @@ export async function purchaseTicket(
     return {
         tokenId,
     }
+}
+
+export async function getLottoEvent<TArgs>({
+    eventName,
+    tx,
+}: {
+    eventName: string
+    tx?: TransactionResponse
+}) {
+    const receipt = await tx?.wait()
+    if (!receipt) throw new Error('Nonexistent tx/receipt')
+
+    const iface = Lootery__factory.createInterface()
+    return receipt.logs
+        .map((log) => iface.parseLog(log))
+        .filter((log): log is LogDescription => Boolean(log))
+        .find((log) => log.name === eventName) as
+        | (LogDescription & {
+              args: TArgs
+          })
+        | undefined
 }

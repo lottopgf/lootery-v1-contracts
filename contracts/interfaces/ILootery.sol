@@ -103,6 +103,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
         address whomst,
         uint256 value
     );
+    event NoWin(uint256 pickId, uint256 winningPickId);
     event DrawSkipped(uint256 indexed gameId);
     event RandomnessRequested(uint208 requestId, uint48 timestamp);
     event Received(address sender, uint256 amount);
@@ -113,13 +114,6 @@ interface ILootery is IRandomiserCallback, IERC721 {
         uint256 currentJackpot,
         uint256 nextUnclaimedPayouts,
         uint256 nextJackpot
-    );
-    event GasRefundAttempted(
-        address indexed to,
-        uint256 value,
-        uint256 gasUsed,
-        uint256 gasPrice,
-        bool success
     );
 
     error TransferFailure(address to, uint256 value, bytes reason);
@@ -139,7 +133,6 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error CallerNotRandomiser(address caller);
     error RequestIdMismatch(uint256 actual, uint208 expected);
     error InsufficientRandomWords();
-    error NoWin(uint256 pickId, uint256 winningPickId);
     error WaitLonger(uint256 deadline);
     error InsufficientOperationalFunds(uint256 have, uint256 want);
     error ClaimWindowMissed(uint256 tokenId);

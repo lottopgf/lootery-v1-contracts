@@ -588,7 +588,8 @@ describe('Lootery e2e', () => {
         await lotto.seedJackpot(parseEther('11'))
     })
 
-    it('should refund gas to draw() keeper', async () => {
+    // The gas refund has been removed, since it's hard to test and not future proof
+    it.skip('should refund gas to draw() keeper', async () => {
         async function deploy() {
             return deployLotto({
                 deployer,
