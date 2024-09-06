@@ -764,7 +764,7 @@ describe('Lootery', () => {
         it('should revert if trying to claim winnings for nonexistent token', async () => {
             const tokenId = (await lotto.totalSupply()) + 1n
 
-            // Claim winnings => burn NFT
+            // Try to claim winnings
             await expect(lotto.claimWinnings(tokenId))
                 .to.be.revertedWithCustomError(lotto, 'ERC721NonexistentToken')
                 .withArgs(tokenId)
@@ -849,6 +849,13 @@ describe('Lootery', () => {
             await expect(lotto.claimWinnings(2))
                 .to.emit(lotto, 'NoWin')
                 .withArgs(computePickId(tickets[1].picks), 36101364786398240n)
+            // Ensure all the tokens were burnt after claiming, even if the user didn't win
+            for (let i = 0; i < tickets.length; i++) {
+                await expect(lotto.ownerOf(i + 1)).to.be.revertedWithCustomError(
+                    lotto,
+                    'ERC721NonexistentToken',
+                )
+            }
         })
     })
 
