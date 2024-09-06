@@ -19,4 +19,8 @@ contract LooteryHarness is Lootery {
     function setGameState(GameState state) external {
         currentGame.state = state;
     }
+
+    function setRandomnessRequest(RandomnessRequest calldata req) external {
+        randomnessRequest = req;
+    }
 }

@@ -532,8 +532,90 @@ describe.only('Lootery', () => {
         })
     })
 
-    describe('#receiveRandomWords', () => {
-        //
+    describe.only('#receiveRandomWords', () => {
+        let lotto: LooteryHarness
+        let reqId = 1n
+        beforeEach(async () => {
+            ;({ lotto, mockRandomiser } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should finalise game upon receiving random words and pick winning balls', async () => {
+            // Mock the state
+            await lotto.setGameState(GameState.DrawPending)
+            const gameId = (await lotto.currentGame()).id
+            const game = await lotto.gameData(gameId)
+            expect(game.winningPickId).to.eq(0, 'ensure game has not been drawn')
+            const seed = 69420n
+            const rId = reqId++
+            await mockRandomiser.setRequest(rId, await lotto.getAddress())
+            await lotto.setRandomnessRequest({
+                requestId: rId,
+                timestamp: await ethers.provider
+                    .getBlock('latest')
+                    .then((block) => block!.timestamp),
+            })
+
+            // Expect the game to be finalised
+            await expect(mockRandomiser.fulfillRandomWords(rId, [seed]))
+                .to.emit(lotto, 'GameFinalised')
+                .withArgs(gameId, await lotto.computeWinningBalls(seed))
+            expect((await lotto.currentGame()).state).to.eq(GameState.Purchase)
+            expect((await lotto.gameData(gameId)).winningPickId).to.not.eq(game.winningPickId)
+        })
+
+        it('should revert if called in any state other than DrawPending', async () => {
+            const { lotto } = await deployUninitialisedLootery(deployer)
+            const allOtherStates = allStates.filter((state) => state !== GameState.DrawPending)
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await mockRandomiser.setRequest(reqId, await lotto.getAddress())
+                await expect(mockRandomiser.fulfillRandomWords(reqId++, [69420n]))
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
+
+        it('should revert if not called by randomiser', async () => {
+            await lotto.setGameState(GameState.DrawPending)
+            await expect(lotto.connect(alice).receiveRandomWords(reqId++, [69420n]))
+                .to.be.revertedWithCustomError(lotto, 'CallerNotRandomiser')
+                .withArgs(alice.address)
+        })
+
+        it('should revert if randomWords is empty', async () => {
+            // Mock the state
+            await lotto.setGameState(GameState.DrawPending)
+            const rId = reqId++
+            await mockRandomiser.setRequest(rId, await lotto.getAddress())
+
+            await expect(mockRandomiser.fulfillRandomWords(rId, [])).to.be.revertedWithCustomError(
+                lotto,
+                'InsufficientRandomWords',
+            )
+        })
+
+        it('should revert if requestId does not match', async () => {
+            // Mock the state
+            await lotto.setGameState(GameState.DrawPending)
+            const rId = reqId++
+            await mockRandomiser.setRequest(rId, await lotto.getAddress())
+            await lotto.setRandomnessRequest({
+                requestId: rId,
+                timestamp: await ethers.provider
+                    .getBlock('latest')
+                    .then((block) => block!.timestamp),
+            })
+            const wrongRequestId = rId + 1n
+            await mockRandomiser.setRequest(wrongRequestId, await lotto.getAddress())
+
+            await expect(mockRandomiser.fulfillRandomWords(wrongRequestId, [69420n]))
+                .to.be.revertedWithCustomError(lotto, 'RequestIdMismatch')
+                .withArgs(wrongRequestId, rId)
+        })
     })
 
     describe('#_setupNextGame', () => {

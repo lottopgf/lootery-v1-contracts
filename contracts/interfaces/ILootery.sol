@@ -72,6 +72,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     }
 
     /// @notice Describes an inflight randomness request
+    /// TODO: Don't rely on requestId not being 0, add a flag or something
     struct RandomnessRequest {
         uint208 requestId;
         uint48 timestamp;

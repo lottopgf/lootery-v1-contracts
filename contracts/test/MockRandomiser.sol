@@ -38,8 +38,8 @@ contract MockRandomiser is IAnyrand, Ownable {
         uint256 requestId,
         uint256[] calldata randomWords
     ) external {
-        require(requestId < nextRequestId, "Request ID doesn't exist");
         address callbackContract = requestIdToCallbackMap[requestId];
+        require(callbackContract != address(0), "Request ID doesn't exist");
         delete requestIdToCallbackMap[requestId];
         IRandomiserCallback(callbackContract).receiveRandomWords(
             requestId,
@@ -49,5 +49,9 @@ contract MockRandomiser is IAnyrand, Ownable {
 
     function setNextRequestId(uint256 reqId) external {
         nextRequestId = reqId;
+    }
+
+    function setRequest(uint256 requestId, address callbackTo) external {
+        requestIdToCallbackMap[requestId] = callbackTo;
     }
 }

@@ -348,14 +348,13 @@ contract Lootery is
         if (msg.sender != randomiser) {
             revert CallerNotRandomiser(msg.sender);
         }
+        if (randomWords.length == 0) {
+            revert InsufficientRandomWords();
+        }
         if (randomnessRequest.requestId != requestId) {
             revert RequestIdMismatch(requestId, randomnessRequest.requestId);
         }
         randomnessRequest = RandomnessRequest({requestId: 0, timestamp: 0});
-
-        if (randomWords.length == 0) {
-            revert InsufficientRandomWords();
-        }
 
         // Pick winning numbers
         uint8[] memory balls = computeWinningBalls(randomWords[0]);
