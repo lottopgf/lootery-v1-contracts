@@ -506,7 +506,6 @@ contract Lootery is
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
 
             emit WinningsClaimed(tokenId, ticket.gameId, whomst, prizeShare);
-            return;
         } else {
             emit NoWin(ticket.pickId, winningPickId);
         }
