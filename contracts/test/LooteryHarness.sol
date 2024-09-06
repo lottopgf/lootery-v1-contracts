@@ -20,7 +20,19 @@ contract LooteryHarness is Lootery {
         currentGame.state = state;
     }
 
+    function setGameData(uint248 gameId, Game calldata data) external {
+        gameData[gameId] = data;
+    }
+
     function setRandomnessRequest(RandomnessRequest calldata req) external {
         randomnessRequest = req;
+    }
+
+    function setJackpot(uint256 amount) external {
+        jackpot = amount;
+    }
+
+    function setUnclaimedPayouts(uint256 amount) external {
+        unclaimedPayouts = amount;
     }
 }

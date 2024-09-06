@@ -399,6 +399,7 @@ contract Lootery is
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
+        uint256 total0 = currentUnclaimedPayouts + currentJackpot;
         if (numWinners == 0) {
             if (nextState == GameState.Dead) {
                 // No winners, but apocalypse mode
@@ -431,8 +432,9 @@ contract Lootery is
             }
         } else {
             // Winners! Jackpot resets to zero for next game, and current
-            // jackpot goes into unclaimed payouts
-            uint256 nextUnclaimedPayouts = currentJackpot;
+            // jackpot+unclaimed goes into next game's unclaimed payouts
+            uint256 nextUnclaimedPayouts = currentJackpot +
+                currentUnclaimedPayouts;
             unclaimedPayouts = nextUnclaimedPayouts;
             jackpot = 0;
             emit JackpotRollover(
@@ -443,6 +445,9 @@ contract Lootery is
                 0
             );
         }
+
+        // Invariant: the total of jackpots + unclaimed payouts is conserved
+        assert(jackpot + unclaimedPayouts == total0);
     }
 
     /// @notice Claim a share of the jackpot with a winning ticket.

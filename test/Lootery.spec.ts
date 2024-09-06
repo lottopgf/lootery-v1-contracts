@@ -532,7 +532,7 @@ describe.only('Lootery', () => {
         })
     })
 
-    describe.only('#receiveRandomWords', () => {
+    describe('#receiveRandomWords', () => {
         let lotto: LooteryHarness
         let reqId = 1n
         beforeEach(async () => {
@@ -618,8 +618,102 @@ describe.only('Lootery', () => {
         })
     })
 
-    describe('#_setupNextGame', () => {
-        //
+    describe.only('#_setupNextGame', () => {
+        let lotto: LooteryHarness
+        /** initial `currentGame` storage var */
+        let game0: { state: bigint; id: bigint }
+        /** initial `gameData` storage var */
+        let gameData0: { ticketsSold: bigint; startedAt: bigint; winningPickId: bigint }
+        beforeEach(async () => {
+            ;({ lotto, mockRandomiser } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+            game0 = await lotto.currentGame()
+            gameData0 = await lotto.gameData(game0.id)
+        })
+
+        it('should revert if called in Dead state', async () => {
+            await lotto.setGameState(GameState.Dead)
+            await expect(lotto.setupNextGame()).to.be.reverted
+        })
+
+        it('should transition to Dead state when kill was called', async () => {
+            await lotto.kill()
+            await time.increase(await lotto.gamePeriod())
+
+            // Call
+            await lotto.setupNextGame()
+            expect((await lotto.currentGame()).state).to.eq(GameState.Dead)
+        })
+
+        it('should initialise next game data correctly', async () => {
+            await time.increase(await lotto.gamePeriod())
+
+            // Call
+            const tx = await lotto.setupNextGame().then((tx) => tx.wait())
+            const game = await lotto.currentGame()
+            // Ensure monotonic progression of gameId
+            expect(game.id).to.eq(game0.id + 1n)
+            // State must always transitions to `Purchase` if not killed
+            expect(game.state).to.eq(GameState.Purchase)
+            // Ensure gameData is initialised correctly
+            const gameData = await lotto.gameData(game.id)
+            expect(gameData.ticketsSold).to.eq(0n)
+            expect(gameData.startedAt).to.deep.eq(
+                await tx!.getBlock().then((block) => block!.timestamp),
+            )
+            expect(gameData.winningPickId).to.eq(0n)
+        })
+
+        describe('Jackpot accounting', () => {
+            beforeEach(async () => {
+                await lotto.setJackpot(parseEther('60'))
+                await lotto.setUnclaimedPayouts(parseEther('40'))
+            })
+
+            describe('no winners', () => {
+                it('should NOT rollover jackpot if transitioning to Dead state (apocalypse)', async () => {
+                    await lotto.kill() // trigger apocalypse mode
+
+                    await expect(lotto.setupNextGame())
+                        .to.emit(lotto, 'JackpotRollover')
+                        .withArgs(0, parseEther('40'), parseEther('60'), parseEther('100'), 0)
+                })
+
+                it('should rollover current jackpot and unclaimed payouts to next jackpot otherwise', async () => {
+                    // Both the current jackpot and unclaimed payouts are combined and then set as the next jackpot
+                    // i.e. Unclaimed payouts are only available during the next game after a win
+                    await expect(lotto.setupNextGame())
+                        .to.emit(lotto, 'JackpotRollover')
+                        .withArgs(0, parseEther('40'), parseEther('60'), 0, parseEther('100'))
+                })
+            })
+
+            describe('winners > 0', () => {
+                it('should rollover current jackpot and unclaimed payouts to next game otherwise', async () => {
+                    // Get some tickets going
+                    await lotto.pickTickets([
+                        { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
+                        { whomst: bob.address, picks: [1, 2, 3, 4, 5] },
+                    ])
+                    const gameData1 = await lotto.gameData(game0.id)
+                    expect(gameData1.ticketsSold).to.eq(2)
+                    await lotto.setGameData(game0.id, {
+                        startedAt: gameData1.startedAt,
+                        ticketsSold: gameData1.ticketsSold,
+                        // Mock winning pick id to the tickets we bought
+                        winningPickId: computePickId([1n, 2n, 3n, 4n, 5n]),
+                    })
+
+                    // Setup next game
+                    await expect(lotto.setupNextGame())
+                        .to.emit(lotto, 'JackpotRollover')
+                        .withArgs(0, parseEther('40'), parseEther('60'), parseEther('100'), 0)
+                })
+            })
+        })
     })
 
     describe('#claimWinnings', () => {
