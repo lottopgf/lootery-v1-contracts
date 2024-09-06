@@ -12,9 +12,10 @@ import {
     TicketSVGRenderer,
     ILootery,
     LooteryHarness__factory,
+    LooteryHarness,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { ZeroAddress, parseEther } from 'ethers'
+import { ZeroAddress, parseEther, parseUnits } from 'ethers'
 import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 import { GameState } from './helpers/GameState'
@@ -467,7 +468,68 @@ describe.only('Lootery', () => {
     })
 
     describe('#draw', () => {
-        //
+        let lotto: LooteryHarness
+        beforeEach(async () => {
+            ;({ lotto, mockRandomiser } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+            await setBalance(await lotto.getAddress(), parseEther('1')) // Needs operational funds to refund gas
+        })
+
+        it('should revert if called in any state other than Purchase', async () => {
+            const { lotto } = await deployUninitialisedLootery(deployer)
+            const allOtherStates = allStates.filter((state) => state !== GameState.Purchase)
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await expect(lotto.draw())
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
+
+        it('should revert if the game period has not elapsed', async () => {
+            // Immediately draw after deploying, game period is 1h -> game period has not elapsed
+            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'WaitLonger')
+            // Try again after 1h
+            await time.increase(3600n)
+            await expect(lotto.draw()).to.not.be.reverted
+        })
+
+        it('should skip draw if there are no tickets sold in current game', async () => {
+            await time.increase(3600n)
+
+            await expect(lotto.draw()).to.emit(lotto, 'DrawSkipped').withArgs(0)
+        })
+
+        it('should request randomness if there are tickets sold in current game', async () => {
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await time.increase(3600n)
+
+            await expect(lotto.draw()).to.emit(lotto, 'RandomnessRequested')
+            await expect((await lotto.currentGame()).state).to.eq(GameState.DrawPending)
+        })
+
+        it('should revert if contract does not have enough ETH balance to request randomness', async () => {
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await time.increase(3600n)
+            // Zero the balance
+            await setBalance(await lotto.getAddress(), 0n)
+
+            await expect(lotto.draw()).to.be.revertedWithCustomError(
+                lotto,
+                'InsufficientOperationalFunds',
+            )
+        })
+
+        it('should revert if randomness requestId is too large', async () => {
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await time.increase(3600n)
+            await mockRandomiser.setNextRequestId(2n ** 208n)
+
+            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'RequestIdOverflow')
+        })
     })
 
     describe('#receiveRandomWords', () => {

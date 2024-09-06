@@ -15,7 +15,7 @@ contract MockRandomiser is IAnyrand, Ownable {
         authorisedContracts[msg.sender] = true;
     }
 
-    function getRequestPrice(uint256) external view returns (uint256) {
+    function getRequestPrice(uint256) external pure returns (uint256) {
         return 0.001 ether;
     }
 
@@ -23,8 +23,8 @@ contract MockRandomiser is IAnyrand, Ownable {
      * Requests randomness
      */
     function requestRandomness(
-        uint256 deadline,
-        uint256 callbackGasLimit
+        uint256 /** deadline */,
+        uint256 /**callbackGasLimit */
     ) external payable returns (uint256) {
         uint256 requestId = nextRequestId++;
         requestIdToCallbackMap[requestId] = msg.sender;
@@ -45,5 +45,9 @@ contract MockRandomiser is IAnyrand, Ownable {
             requestId,
             randomWords
         );
+    }
+
+    function setNextRequestId(uint256 reqId) external {
+        nextRequestId = reqId;
     }
 }

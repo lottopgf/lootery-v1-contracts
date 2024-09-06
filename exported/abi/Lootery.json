@@ -375,22 +375,6 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "requestId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "RequestAlreadyInFlight",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "actual",
         "type": "uint256"
       },
@@ -740,6 +724,25 @@
       }
     ],
     "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint208",
+        "name": "requestId",
+        "type": "uint208"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint48",
+        "name": "timestamp",
+        "type": "uint48"
+      }
+    ],
+    "name": "RandomnessRequested",
     "type": "event"
   },
   {

@@ -103,6 +103,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
         uint256 value
     );
     event DrawSkipped(uint256 indexed gameId);
+    event RandomnessRequested(uint208 requestId, uint48 timestamp);
     event Received(address sender, uint256 amount);
     event JackpotSeeded(address indexed whomst, uint256 amount);
     event JackpotRollover(
@@ -133,7 +134,6 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error InvalidBallValue(uint256 ballValue);
     error GameAlreadyDrawn();
     error UnexpectedState(GameState actual);
-    error RequestAlreadyInFlight(uint256 requestId, uint256 timestamp);
     error RequestIdOverflow(uint256 requestId);
     error CallerNotRandomiser(address caller);
     error RequestIdMismatch(uint256 actual, uint208 expected);

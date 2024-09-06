@@ -106,6 +106,8 @@ contract Lootery is
         emit Received(msg.sender, msg.value);
     }
 
+    /// @notice Only allow calls in the specified game state
+    /// @param state Required game state
     modifier onlyInState(GameState state) {
         if (currentGame.state != state) {
             revert UnexpectedState(currentGame.state);
@@ -288,14 +290,7 @@ contract Lootery is
     /// @notice Draw numbers, picking potential jackpot winners and ending the
     ///     current game. This should be automated by a keeper.
     function draw() external onlyInState(GameState.Purchase) {
-        uint256 gasUsed = gasleft();
-        // Assert game is still playable
-        // Assert we're in the correct state
-        CurrentGame memory currentGame_ = currentGame;
-        if (currentGame_.state != GameState.Purchase) {
-            revert UnexpectedState(currentGame_.state);
-        }
-        Game memory game = gameData[currentGame_.id];
+        Game memory game = gameData[currentGame.id];
         // Assert that the game is actually over
         uint256 gameDeadline = (game.startedAt + gamePeriod);
         if (block.timestamp < gameDeadline) {
@@ -306,28 +301,18 @@ contract Lootery is
         // slither-disable-next-line incorrect-equality
         if (game.ticketsSold == 0) {
             // Case #1: No tickets were sold, just skip the game
-            emit DrawSkipped(currentGame_.id);
+            emit DrawSkipped(currentGame.id);
             _setupNextGame();
         } else {
             // Case #2: Tickets were sold
             currentGame.state = GameState.DrawPending;
-            // Assert there's not already a request inflight, unless some
-            // reasonable amount of time has already passed
-            RandomnessRequest memory randReq = randomnessRequest;
-            if (
-                randReq.requestId != 0 &&
-                (block.timestamp <= (randReq.timestamp + 1 hours))
-            ) {
-                revert RequestAlreadyInFlight(
-                    randReq.requestId,
-                    randReq.timestamp
-                );
-            }
+            // If there's already a request inflight, we have a bug somewhere
+            assert(randomnessRequest.requestId == 0);
 
             // Assert that we have enough in operational funds so as to not eat
             // into jackpots or whatever else.
             uint256 requestPrice = IAnyrand(randomiser).getRequestPrice(
-                500_000
+                500_000 /** TODO: Really need to make this configurable */
             );
             if (address(this).balance < requestPrice) {
                 revert InsufficientOperationalFunds(
@@ -347,29 +332,11 @@ contract Lootery is
                 requestId: uint208(requestId),
                 timestamp: uint48(block.timestamp)
             });
-        }
-
-        // Refund gas to caller (+10% bounty)
-        gasUsed -= gasleft();
-        gasUsed += 21_000 + 9000; // total gas <100k
-        // Cap gas refund
-        gasUsed = gasUsed > 150_000 ? 150_000 : gasUsed;
-        // Everything below this line costs an additional ~9000 gas
-        uint256 gasRefund = ((gasUsed * tx.gasprice) * 1.1e4) / 1e4;
-        if (address(this).balance < gasRefund) {
-            revert InsufficientOperationalFunds(
-                address(this).balance,
-                gasRefund
+            emit RandomnessRequested(
+                uint208(requestId),
+                uint48(block.timestamp)
             );
         }
-        (bool success, ) = msg.sender.call{value: gasRefund}("");
-        emit GasRefundAttempted(
-            msg.sender,
-            gasRefund,
-            gasUsed,
-            tx.gasprice,
-            success
-        );
     }
 
     /// @notice Callback for VRF fulfiller.
