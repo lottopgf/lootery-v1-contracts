@@ -1124,9 +1124,11 @@ describe('Lootery', () => {
                 .withArgs(alice.address)
         })
 
-        it('should revert if renderer does not implement ITicketSVGRenderer', async () => {
-            // Zero address
+        it('should revert if renderer is zero address', async () => {
             await expect(lotto.setTicketSVGRenderer(ethers.ZeroAddress)).to.be.reverted
+        })
+
+        it('should revert if renderer does not implement ITicketSVGRenderer', async () => {
             // EOA
             await expect(lotto.setTicketSVGRenderer(alice.address)).to.be.reverted
             // Contract that doesn't implement ERC165

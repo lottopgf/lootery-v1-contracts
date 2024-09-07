@@ -7,6 +7,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IRandomiserCallback} from "./interfaces/IRandomiserCallback.sol";
@@ -578,12 +579,11 @@ contract Lootery is
     /// @notice Set the SVG renderer for tickets (privileged)
     /// @param renderer Address of renderer contract
     function _setTicketSVGRenderer(address renderer) internal {
-        if (
-            renderer == address(0) ||
-            !ITicketSVGRenderer(renderer).supportsInterface(
+        bool isValidRenderer = renderer != address(0) &&
+            IERC165(renderer).supportsInterface(
                 type(ITicketSVGRenderer).interfaceId
-            )
-        ) {
+            );
+        if (!isValidRenderer) {
             revert InvalidTicketSVGRenderer(renderer);
         }
         ticketSVGRenderer = renderer;
