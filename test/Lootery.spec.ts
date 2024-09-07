@@ -16,6 +16,7 @@ import {
     LooteryHarness,
     ERC20,
     RevertingETHReceiver__factory,
+    TestERC721__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import { ZeroAddress, parseEther } from 'ethers'
@@ -26,7 +27,14 @@ import { computePick, computePickId, deployLotto, shuffle } from './helpers/lott
 import { getRandomValues } from 'node:crypto'
 
 const isCoverage = Boolean((hre as any).__SOLIDITY_COVERAGE_RUNNING)
-const runs = isCoverage ? 5 : 100
+const CUSTOM_RUNS = process.env.RUNS
+const customRunsOrDefault =
+    typeof CUSTOM_RUNS !== 'undefined' &&
+    !Number.isNaN(Number(CUSTOM_RUNS)) &&
+    Number.isFinite(Number(CUSTOM_RUNS))
+        ? Number(CUSTOM_RUNS)
+        : 100
+const runs = isCoverage ? 5 : customRunsOrDefault
 
 function randomBigInt(bytes: number) {
     return BigInt(`0x${Buffer.from(getRandomValues(new Uint8Array(bytes))).toString('hex')}`)
@@ -1101,15 +1109,71 @@ describe('Lootery', () => {
     })
 
     describe('#setTicketSVGRenderer', () => {
-        //
+        let lotto: LooteryHarness
+        beforeEach(async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if not called by owner', async () => {
+            await expect(lotto.connect(alice).setTicketSVGRenderer(await lotto.getAddress()))
+                .to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+                .withArgs(alice.address)
+        })
+
+        it('should revert if renderer does not implement ITicketSVGRenderer', async () => {
+            // Zero address
+            await expect(lotto.setTicketSVGRenderer(ethers.ZeroAddress)).to.be.reverted
+            // EOA
+            await expect(lotto.setTicketSVGRenderer(alice.address)).to.be.reverted
+            // Contract that doesn't implement ERC165
+            const notRenderer0 = await new TestERC20__factory(deployer).deploy(deployer.address)
+            await expect(lotto.setTicketSVGRenderer(await notRenderer0.getAddress())).to.be.reverted
+            // Contract that implements ERC165
+            const notRenderer1 = await new TestERC721__factory(deployer).deploy(deployer.address)
+            await expect(lotto.setTicketSVGRenderer(await notRenderer1.getAddress()))
+                .to.be.revertedWithCustomError(lotto, 'InvalidTicketSVGRenderer')
+                .withArgs(await notRenderer1.getAddress())
+        })
+
+        it('should set TicketSVGRenderer', async () => {
+            const renderer = await new TicketSVGRenderer__factory(deployer).deploy()
+            await lotto.setTicketSVGRenderer(await renderer.getAddress())
+            expect(await lotto.ticketSVGRenderer()).to.eq(await renderer.getAddress())
+        })
     })
 
     describe('#isGameActive', () => {
-        //
+        it('should return true if game is not dead', async () => {
+            const { lotto } = await deployUninitialisedLootery(deployer)
+            for (const state of allStates.filter((state) => state !== GameState.Dead)) {
+                expect(await lotto.isGameActive()).to.eq(true)
+            }
+        })
     })
 
     describe('#tokenURI', () => {
-        //
+        it('should revert if token does not exist', async () => {
+            const { lotto } = await deployUninitialisedLootery(deployer)
+            await expect(lotto.tokenURI(1)).to.be.revertedWithCustomError(
+                lotto,
+                'ERC721NonexistentToken',
+            )
+        })
+
+        it('should return tokenURI', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            const tokenUri = await lotto.tokenURI(1)
+            expect(tokenUri.startsWith('data:application/json;base64,')).to.eq(true)
+        })
     })
 })
 
