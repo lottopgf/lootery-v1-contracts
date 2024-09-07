@@ -12,7 +12,7 @@
     "build": "yarn hardhat compile",
     "format:check": "yarn prettier --check .",
     "test": "yarn hardhat --network hardhat test",
-    "coverage": "yarn hardhat coverage"
+    "coverage": "yarn hardhat clean && yarn hardhat coverage"
   },
   "keywords": [],
   "author": "The LottoPGF Team",
