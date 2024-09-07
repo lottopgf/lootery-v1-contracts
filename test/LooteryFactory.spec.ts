@@ -36,6 +36,38 @@ describe('LooteryFactory', () => {
         })
     })
 
+    it('should revert on double-initialisation', async () => {
+        await expect(
+            factory.init(
+                await looteryImpl.getAddress(),
+                await mockRandomiser.getAddress(),
+                await ticketSVGRenderer.getAddress(),
+            ),
+        ).to.be.revertedWithCustomError(factory, 'InvalidInitialization')
+    })
+
+    it('should only allow DEFAULT_ADMIN_ROLE to upgrade factory implementation', async () => {
+        const newFactoryImpl = await new LooteryFactory__factory(deployer).deploy()
+        const randomSigners = Array.from({ length: 10 }, (_) =>
+            ethers.Wallet.createRandom().connect(ethers.provider),
+        )
+        for (const signer of randomSigners) {
+            await expect(
+                factory.connect(signer).upgradeToAndCall(await newFactoryImpl.getAddress(), '0x'),
+            ).to.be.revertedWithCustomError(factory, 'AccessControlUnauthorizedAccount')
+        }
+
+        // Deployer has admin role
+        expect(await factory.hasRole(await factory.DEFAULT_ADMIN_ROLE(), deployer.address)).to.eq(
+            true,
+        )
+        await expect(
+            factory.connect(deployer).upgradeToAndCall(await newFactoryImpl.getAddress(), '0x'),
+        )
+            .to.emit(factory, 'Upgraded')
+            .withArgs(await newFactoryImpl.getAddress())
+    })
+
     it('should set lootery master copy', async () => {
         const oldLooteryMasterCopy = await factory.getLooteryMasterCopy()
         expect(oldLooteryMasterCopy).to.eq(await looteryImpl.getAddress())
@@ -70,5 +102,30 @@ describe('LooteryFactory', () => {
         ).to.be.revertedWithCustomError(factory, 'AccessControlUnauthorizedAccount')
         await factory.setTicketSVGRenderer(await newTicketSVGRenderer.getAddress())
         expect(await factory.getTicketSVGRenderer()).to.eq(await newTicketSVGRenderer.getAddress())
+    })
+
+    it('should create a lotto at the computed address', async () => {
+        const computedAddress = await factory.computeNextAddress()
+        await expect(
+            factory.create(
+                'Test Lootery',
+                'TEST',
+                5,
+                16,
+                3600,
+                1,
+                5000,
+                ethers.Wallet.createRandom().address,
+                60,
+                1,
+            ),
+        )
+            .to.emit(factory, 'LooteryLaunched')
+            .withArgs(
+                computedAddress,
+                await factory.getLooteryMasterCopy(),
+                deployer.address,
+                'Test Lootery',
+            )
     })
 })
