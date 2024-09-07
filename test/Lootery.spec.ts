@@ -34,7 +34,7 @@ const customRunsOrDefault =
     Number.isFinite(Number(CUSTOM_RUNS))
         ? Number(CUSTOM_RUNS)
         : 100
-const runs = isCoverage ? 5 : customRunsOrDefault
+const runs = isCoverage ? 10 : customRunsOrDefault
 
 function randomBigInt(bytes: number) {
     return BigInt(`0x${Buffer.from(getRandomValues(new Uint8Array(bytes))).toString('hex')}`)
