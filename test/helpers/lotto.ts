@@ -21,6 +21,17 @@ import {
 } from 'ethers'
 import crypto from 'node:crypto'
 
+export function computePick(pickId: bigint): bigint[] {
+    if (pickId & 1n) throw new Error('0 is not a valid ball value')
+    const pick: bigint[] = []
+    for (let i = 1n; i < 256n; i++) {
+        if ((pickId >> i) & 1n) {
+            pick.push(i)
+        }
+    }
+    return pick
+}
+
 export function computePickId(picks: bigint[]) {
     return picks.reduce((id, pick) => id | (1n << pick), 0n)
 }
@@ -29,6 +40,8 @@ export async function deployLotto({
     deployer,
     gamePeriod,
     prizeToken,
+    numPicks,
+    maxBallValue,
     seedJackpotDelay,
     shouldSkipSeedJackpot,
     seedJackpotMinValue,
@@ -37,6 +50,8 @@ export async function deployLotto({
     /** seconds */
     gamePeriod: bigint
     prizeToken: TestERC20
+    numPicks?: bigint
+    maxBallValue?: bigint
     /** seconds */
     seedJackpotDelay?: bigint
     shouldSkipSeedJackpot?: boolean
@@ -52,8 +67,8 @@ export async function deployLotto({
                 owner: deployer.address,
                 name: 'Lotto',
                 symbol: 'LOTTO',
-                numPicks: 5,
-                maxBallValue: 69,
+                numPicks: numPicks || 5,
+                maxBallValue: maxBallValue || 69,
                 gamePeriod,
                 ticketPrice: parseEther('0.1'),
                 communityFeeBps: 5000, // 50%
@@ -106,19 +121,25 @@ export async function deployLotto({
     }
 }
 
+const roundFn = (R: bigint, i: bigint, seed: bigint, domain: bigint) => {
+    return BigInt(
+        ethers.solidityPackedKeccak256(
+            ['uint256', 'uint256', 'uint256', 'uint256'],
+            [R, i, seed, domain],
+        ),
+    )
+}
+
+export function shuffle(i: bigint, domain: bigint, seed: bigint, rounds: bigint) {
+    return encrypt(i, domain, seed, rounds, roundFn)
+}
+
 export function slikpik(numPicks: bigint, domain: bigint) {
     const seed = BigInt(hexlify(crypto.getRandomValues(new Uint8Array(32))))
-    const roundFn = (R: bigint, i: bigint, seed: bigint, domain: bigint) => {
-        return BigInt(
-            ethers.solidityPackedKeccak256(
-                ['uint256', 'uint256', 'uint256', 'uint256'],
-                [R, i, seed, domain],
-            ),
-        )
-    }
+
     const picks: bigint[] = []
     for (let i = 0; i < numPicks; i++) {
-        const pick = 1n + encrypt(BigInt(i), domain, seed, 4n, roundFn)
+        const pick = 1n + shuffle(BigInt(i), domain, seed, 12n)
         picks.push(pick)
     }
     picks.sort((a, b) => Number(a - b))

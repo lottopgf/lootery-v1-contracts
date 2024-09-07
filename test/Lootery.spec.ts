@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat'
+import * as hre from 'hardhat'
 import { time, setBalance, impersonateAccount } from '@nomicfoundation/hardhat-network-helpers'
 import {
     LooteryFactory,
@@ -21,7 +22,15 @@ import { ZeroAddress, parseEther } from 'ethers'
 import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 import { GameState } from './helpers/GameState'
-import { computePickId, deployLotto } from './helpers/lotto'
+import { computePick, computePickId, deployLotto, shuffle } from './helpers/lotto'
+import { getRandomValues } from 'node:crypto'
+
+const isCoverage = Boolean((hre as any).__SOLIDITY_COVERAGE_RUNNING)
+const runs = isCoverage ? 5 : 100
+
+function randomBigInt(bytes: number) {
+    return BigInt(`0x${Buffer.from(getRandomValues(new Uint8Array(bytes))).toString('hex')}`)
+}
 
 const allStates = Object.values(GameState).filter(
     (key): key is number => typeof key === 'number',
@@ -975,15 +984,120 @@ describe('Lootery', () => {
     })
 
     describe('#rescueTokens', () => {
-        //
+        let lotto: LooteryHarness
+        beforeEach(async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                shouldSkipSeedJackpot: true,
+            }))
+        })
+
+        it('should revert if not called by owner', async () => {
+            await expect(lotto.connect(alice).rescueTokens(await testERC20.getAddress()))
+                .to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+                .withArgs(alice.address)
+        })
+
+        it('should rescue tokens other than the prize token', async () => {
+            // Load contract with random token
+            const amount = parseEther('10')
+            const notPrizeToken = await new TestERC20__factory(deployer).deploy(deployer.address)
+            await notPrizeToken.mint(await lotto.getAddress(), amount)
+
+            // Rescue tokens
+            await lotto.rescueTokens(await notPrizeToken.getAddress())
+            expect(await notPrizeToken.balanceOf(await lotto.getAddress())).to.eq(0)
+            expect(await notPrizeToken.balanceOf(deployer.address)).to.eq(amount)
+        })
+
+        describe('rescue prize token', () => {
+            for (let i = 0; i < runs; i++) {
+                // Fuzz random scenarios
+                const commFees = randomBigInt(16)
+                const unclaimedPayouts = randomBigInt(16)
+                const jackpot = randomBigInt(16)
+                const locked = commFees + unclaimedPayouts + jackpot
+                const excess = randomBigInt(16)
+                it(`should rescue prize token (${i + 1}/${runs})`, async () => {
+                    await lotto.setAccruedCommunityFees(commFees)
+                    await lotto.setUnclaimedPayouts(unclaimedPayouts)
+                    await lotto.setJackpot(jackpot)
+                    await testERC20.mint(await lotto.getAddress(), locked + excess)
+                    expect(await testERC20.getAddress()).to.eq(await lotto.prizeToken())
+
+                    // Total locked should be sum of accrued fees, unclaimed payouts, and jackpot
+                    const balance = await testERC20.balanceOf(deployer.address)
+                    await lotto.rescueTokens(await lotto.prizeToken())
+                    expect(await testERC20.balanceOf(deployer.address)).to.eq(balance + excess)
+                })
+            }
+        })
     })
 
     describe('#computePicks', () => {
-        //
+        let lotto: LooteryHarness
+        let numPicks!: number
+        let maxBallValue!: number
+        beforeEach(async () => {
+            // Minimum of 2 numbers for a pick
+            numPicks = 2 + Math.floor(Math.random() * 25)
+            // maxBallValue in [numPicks, 256)
+            do {
+                maxBallValue = Number(randomBigInt(1))
+            } while (maxBallValue < numPicks)
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                numPicks: BigInt(numPicks),
+                maxBallValue: BigInt(maxBallValue),
+            }))
+        })
+
+        for (let i = 0; i < runs; i++) {
+            it(`should compute picks (${i + 1}/${runs})`, async () => {
+                const randomPickId = randomBigInt(32) & ~1n // Ensure 0th bit is always 0
+                expect(await lotto.computePicks(randomPickId)).to.deep.eq(
+                    computePick(randomPickId).slice(0, Number(await lotto.numPicks())),
+                )
+            })
+        }
     })
 
     describe('#computeWinningBalls', () => {
-        //
+        let lotto: LooteryHarness
+        let numPicks!: number
+        let maxBallValue!: number
+        beforeEach(async () => {
+            // Minimum of 2 numbers for a pick
+            numPicks = 2 + Math.floor(Math.random() * 25)
+            // maxBallValue in [numPicks, 256)
+            do {
+                maxBallValue = Number(randomBigInt(1))
+            } while (maxBallValue < numPicks)
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+                numPicks: BigInt(numPicks),
+                maxBallValue: BigInt(maxBallValue),
+            }))
+        })
+
+        for (let i = 0; i < runs; i++) {
+            it(`should compute winning balls (${i + 1}/${runs})`, async () => {
+                const seed = randomBigInt(32)
+                // Pick is always a sorted sequence of unique numbers produced by the
+                // Feistel Shuffle with 12 rounds
+                const pick = Array.from(
+                    { length: numPicks },
+                    (_, i) => 1n + shuffle(BigInt(i), BigInt(maxBallValue), seed, 12n),
+                ).sort((a, b) => Number(a - b))
+                expect(Array.from(await lotto.computeWinningBalls(seed))).to.deep.eq(pick)
+            })
+        }
     })
 
     describe('#setTicketSVGRenderer', () => {

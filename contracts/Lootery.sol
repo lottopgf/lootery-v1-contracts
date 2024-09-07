@@ -544,13 +544,15 @@ contract Lootery is
     /// @param tokenAddress Address of token to withdraw
     function rescueTokens(address tokenAddress) external onlyOwner {
         uint256 amount = IERC20(tokenAddress).balanceOf(address(this));
+        uint256 locked = accruedCommunityFees + unclaimedPayouts + jackpot;
+        assert(amount >= locked);
         if (tokenAddress == prizeToken) {
             // TODO: This no longer works if we don't limit claiming jackpot
             // to last game only
             // 1. Limit claiming jackpot to last game only and rollover
             //  jackpot from 2 games ago if unclaimed (during finalisation)
             // 2. Count total locked as jackpot (+20k gas every ticket)
-            amount = amount - accruedCommunityFees - unclaimedPayouts - jackpot;
+            amount -= locked;
         }
 
         IERC20(tokenAddress).safeTransfer(msg.sender, amount);
