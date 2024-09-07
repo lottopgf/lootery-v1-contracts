@@ -674,7 +674,7 @@ describe('Lootery e2e', () => {
             // Herald the end of days
             const { id: gameId } = await lotto.currentGame()
             await lotto.kill()
-            expect(await lotto.apocalypseGameId()).to.eq(gameId + 1n)
+            expect(await lotto.isApocalypseMode()).to.eq(true)
 
             // Buy tickets
             const picks: [string, number[]][] = [
@@ -747,7 +747,7 @@ describe('Lootery e2e', () => {
             // Herald the end of days
             const { id: gameId } = await lotto.currentGame()
             await lotto.kill()
-            expect(await lotto.apocalypseGameId()).to.eq(gameId + 1n)
+            expect(await lotto.isApocalypseMode()).to.eq(true)
 
             // Buy tickets
             const picks: [string, number[]][] = [

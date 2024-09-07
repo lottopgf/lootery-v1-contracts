@@ -933,7 +933,7 @@ describe('Lootery', () => {
 
         it('should queue apocalypse mode', async () => {
             await lotto.kill()
-            expect(await lotto.apocalypseGameId()).to.not.eq(0n)
+            expect(await lotto.isApocalypseMode()).to.eq(true)
         })
 
         it('should revert if apocalypse mode already queued', async () => {

@@ -93,9 +93,8 @@ contract Lootery is
     mapping(uint256 gameId => uint256[]) public claimedWinningTickets;
     /// @notice Accrued community fee share (wei)
     uint256 public accruedCommunityFees;
-    /// @notice When nonzero, this gameId will be the last
-    ///     TODO: This could just be a bool
-    uint256 public apocalypseGameId;
+    /// @notice When true, current game will be the last
+    bool public isApocalypseMode;
     /// @notice Timestamp of when jackpot was last seeded
     uint256 public jackpotLastSeededAt;
 
@@ -380,7 +379,7 @@ contract Lootery is
         uint248 gameId = currentGame.id;
 
         GameState nextState;
-        if (apocalypseGameId == gameId + 1) {
+        if (isApocalypseMode) {
             // Apocalypse mode, kill game forever
             nextState = GameState.Dead;
         } else {
@@ -523,11 +522,11 @@ contract Lootery is
     /// @notice Set this game as the last game of the lottery.
     ///     aka invoke apocalypse mode.
     function kill() external onlyOwner onlyInState(GameState.Purchase) {
-        if (apocalypseGameId != 0) {
+        if (isApocalypseMode) {
             // Already set
             revert GameInactive();
         }
-        apocalypseGameId = currentGame.id + 1;
+        isApocalypseMode = true;
     }
 
     /// @notice Withdraw any ETH (used for VRF requests).
