@@ -1150,6 +1150,7 @@ describe('Lootery', () => {
         it('should return true if game is not dead', async () => {
             const { lotto } = await deployUninitialisedLootery(deployer)
             for (const state of allStates.filter((state) => state !== GameState.Dead)) {
+                await lotto.setGameState(state)
                 expect(await lotto.isGameActive()).to.eq(true)
             }
         })
