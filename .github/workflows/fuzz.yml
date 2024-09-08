@@ -1,0 +1,33 @@
+name: Fuzzing
+on: workflow_dispatch
+
+jobs:
+  echidna_fuzzing:
+    name: echidna fuzzing
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: install node
+        uses: actions/setup-node@v3
+        with:
+          cache: yarn
+          node-version: 18
+
+      - name: install node deps
+        run: yarn install --frozen-lockfile
+
+      - name: build
+        run: yarn build
+
+      - name: run echidna
+        uses: crytic/echidna-action@v2
+        with:
+          solc-version: 0.8.27
+          files: .
+          contract: EchidnaLootery
+          crytic-args: --hardhat-ignore-compile
+          config: echidna.config.yaml
