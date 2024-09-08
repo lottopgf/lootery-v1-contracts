@@ -117,6 +117,8 @@ interface ILootery is IRandomiserCallback, IERC721 {
     );
     event AccruedCommunityFeesWithdrawn(address indexed to, uint256 amount);
     event OperationalFundsWithdrawn(address indexed to, uint256 amount);
+    event BeneficiaryAdded(address indexed beneficiary, string displayName);
+    event BeneficiaryRemoved(address indexed beneficiary);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidNumPicks(uint256 numPicks);
@@ -141,6 +143,8 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error GameInactive();
     error RateLimited(uint256 secondsToWait);
     error InsufficientJackpotSeed(uint256 value);
+    error UnknownBeneficiary(address beneficiary);
+    error EmptyDisplayName();
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

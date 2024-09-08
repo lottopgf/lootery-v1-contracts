@@ -190,6 +190,68 @@ describe('Lootery', () => {
         })
     })
 
+    describe('#setBeneficiary, #beneficiaries', () => {
+        beforeEach(async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if called by non-owner', async () => {
+            await expect(
+                lotto.connect(bob).setBeneficiary(beneficiary.address, 'Beneficiary', true),
+            ).to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
+        })
+
+        it('should revert if display name is empty', async () => {
+            await expect(
+                lotto.setBeneficiary(beneficiary.address, '', true),
+            ).to.be.revertedWithCustomError(lotto, 'EmptyDisplayName')
+        })
+
+        it('should add beneficiaries into set', async () => {
+            const n = 10
+            const randomAddresses = Array.from({ length: n }, (_) => [
+                ethers.Wallet.createRandom().address,
+                `Beneficiary ${ethers.Wallet.createRandom().address}`,
+            ])
+            randomAddresses.push(randomAddresses[randomAddresses.length - 1]) // Duplicate addition
+
+            for (const [address, displayName] of randomAddresses) {
+                await lotto.setBeneficiary(address, displayName, true)
+            }
+            const [addresses, displayNames] = await lotto.beneficiaries()
+            expect(addresses).to.deep.equal(
+                randomAddresses.slice(0, -1).map(([address]) => address),
+            )
+            expect(displayNames).to.deep.equal(
+                randomAddresses.slice(0, -1).map(([, displayName]) => displayName),
+            )
+        })
+
+        it('should remove beneficiaries', async () => {
+            // Add beneficiaries
+            const randomAddresses = Array.from(
+                { length: 10 },
+                (_) => ethers.Wallet.createRandom().address,
+            )
+            for (const address of randomAddresses) {
+                await lotto.setBeneficiary(address, `Beneficiary ${address}`, true)
+            }
+
+            // Remove beneficiaries
+            randomAddresses.push(randomAddresses[randomAddresses.length - 1]) // Duplicate removal
+            for (const address of randomAddresses) {
+                await lotto.setBeneficiary(address, '', false)
+            }
+            const [addresses, displayNames] = await lotto.beneficiaries()
+            expect(addresses).to.deep.equal([])
+            expect(displayNames).to.deep.equal([])
+        })
+    })
+
     describe('#seedJackpot', () => {
         it('should revert if called in any state other than Purchase', async () => {
             const { lotto } = await deployUninitialisedLootery(deployer)
@@ -428,11 +490,29 @@ describe('Lootery', () => {
             expect(await testERC20.balanceOf(await lotto.getAddress())).to.eq(totalPurchasePrice)
         })
 
+        it('should revert if beneficiary is unknown', async () => {
+            const ticketPrice = await lotto.ticketPrice()
+            await testERC20.mint(deployer.address, ticketPrice * 100n)
+            await testERC20.approve(await lotto.getAddress(), ticketPrice * 100n)
+
+            await expect(
+                lotto.purchase(
+                    [{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }],
+                    beneficiary.address,
+                ),
+            ).to.be.revertedWithCustomError(lotto, 'UnknownBeneficiary')
+        })
+
         it('should take tokens for payment and mint tickets, and transfer to beneficiary when specified', async () => {
             const ticketPrice = await lotto.ticketPrice()
             await testERC20.mint(deployer.address, ticketPrice * 100n)
             await testERC20.approve(await lotto.getAddress(), ticketPrice * 100n)
             const beneficiaryBalance = await testERC20.balanceOf(beneficiary.address)
+            await lotto.setBeneficiary(
+                beneficiary.address,
+                `Beneficiary ${beneficiary.address}`,
+                true,
+            )
 
             // Purchase 2 tickets
             const tx = lotto.purchase(
