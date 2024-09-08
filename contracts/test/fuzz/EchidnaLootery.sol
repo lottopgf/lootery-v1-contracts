@@ -36,7 +36,12 @@ contract EchidnaLootery {
         });
     }
 
-    function createLootery() internal returns (Lootery lootery) {
+    function createLootery(
+        uint8 numPicks,
+        uint8 maxBallValue
+    ) internal returns (Lootery lootery) {
+        config.numPicks = numPicks;
+        config.maxBallValue = maxBallValue;
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeWithSelector(Lootery.init.selector, config)
@@ -91,16 +96,20 @@ contract EchidnaLootery {
     /// @param seed Random seed
     /// @param numTickets Number of tickets to buy
     /// @param addresses Addresses to buy tickets for
-    function test_game_progression(
+    function test_gameProgression(
+        uint8 numPicks,
+        uint8 maxBallValue,
         uint256 seed,
         uint256 numTickets,
         address[] calldata addresses,
         uint256 runs
     ) public {
+        numPicks = 1 + (numPicks % (type(uint8).max - 1));
+        maxBallValue = numPicks + (maxBallValue % (type(uint8).max - numPicks));
         numTickets = numTickets % 32; // Max echidna array len=32
         runs = 1 + (runs % 19);
 
-        Lootery lootery = createLootery();
+        Lootery lootery = createLootery(numPicks, maxBallValue);
 
         for (uint256 i = 0; i < runs; i++) {
             (ILootery.GameState state0, uint256 gameId0) = lootery
@@ -134,6 +143,7 @@ contract EchidnaLootery {
                 );
                 randomiser.fulfillRandomWords(requestId, randomWords);
             }
+            seed = uint256(keccak256(abi.encodePacked(seed)));
         }
         (, uint256 gameIdZ) = lootery.currentGame();
         assert(gameIdZ == runs);
@@ -142,8 +152,8 @@ contract EchidnaLootery {
     /// @notice It must always be the case that the internal accounting of
     ///     jackpot+fees is always greater than or equal to the balance of
     ///     the prize token balance in the contract
-    function test_jackpot_and_fees_gt_balance() public {
-        Lootery lootery = createLootery();
+    function test_jackpotAndFeesGtBalance() public {
+        Lootery lootery = createLootery(5, 36);
         assert(
             lootery.jackpot() + lootery.accruedCommunityFees() >=
                 prizeToken.balanceOf(address(lootery))
@@ -151,8 +161,14 @@ contract EchidnaLootery {
     }
 
     /// @notice #computeWinningBalls produces strictly ordered numbers
-    function test_sorted_winning_numbers(uint256 seed) public {
-        Lootery lootery = createLootery();
+    function test_sortedWinningNumbers(
+        uint8 numPicks,
+        uint8 maxBallValue,
+        uint256 seed
+    ) public {
+        numPicks = 1 + (numPicks % (type(uint8).max - 1));
+        maxBallValue = numPicks + (maxBallValue % (type(uint8).max - numPicks));
+        Lootery lootery = createLootery(numPicks, maxBallValue);
         uint8[] memory balls = lootery.computeWinningBalls(seed);
         uint8 lastPick = 0;
         for (uint256 i = 0; i < balls.length; i++) {
