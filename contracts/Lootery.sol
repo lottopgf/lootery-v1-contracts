@@ -6,6 +6,7 @@ import {Pick} from "./lib/Pick.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -48,6 +49,7 @@ contract Lootery is
 {
     using SafeERC20 for IERC20;
     using Strings for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @notice How many numbers must be picked per draw (and per ticket)
     ///     The range of this number should be something like 3-7
@@ -97,6 +99,11 @@ contract Lootery is
     bool public isApocalypseMode;
     /// @notice Timestamp of when jackpot was last seeded
     uint256 public jackpotLastSeededAt;
+    /// @notice Beneficiaries; these addresses may be selected during purchase
+    ///     to receive the community fee share.
+    EnumerableSet.AddressSet private _beneficiaries;
+    /// @notice Beneficiary display names for human readability
+    mapping(address beneficiary => string name) public beneficiaryDisplayNames;
 
     constructor() {
         _disableInitializers();
@@ -166,6 +173,47 @@ contract Lootery is
             startedAt: uint64(block.timestamp),
             winningPickId: 0
         });
+    }
+
+    /// @notice Get all beneficiaries (shouldn't be such a huge list)
+    function beneficiaries()
+        external
+        view
+        returns (address[] memory addresses, string[] memory names)
+    {
+        addresses = _beneficiaries.values();
+        names = new string[](addresses.length);
+        for (uint256 i; i < addresses.length; ++i) {
+            names[i] = beneficiaryDisplayNames[addresses[i]];
+        }
+    }
+
+    /// @notice Add or remove a beneficiary
+    /// @param beneficiary Address to add/remove
+    /// @param displayName Display name for the beneficiary
+    /// @param isBeneficiary Whether to add or remove
+    /// @return didMutate Whether the beneficiary was added/removed
+    function setBeneficiary(
+        address beneficiary,
+        string calldata displayName,
+        bool isBeneficiary
+    ) external onlyOwner returns (bool didMutate) {
+        if (isBeneficiary) {
+            if (bytes(displayName).length == 0) {
+                revert EmptyDisplayName();
+            }
+            beneficiaryDisplayNames[beneficiary] = displayName;
+            didMutate = _beneficiaries.add(beneficiary);
+            if (didMutate) {
+                emit BeneficiaryAdded(beneficiary, displayName);
+            }
+        } else {
+            didMutate = _beneficiaries.remove(beneficiary);
+            if (didMutate) {
+                delete beneficiaryDisplayNames[beneficiary];
+                emit BeneficiaryRemoved(beneficiary);
+            }
+        }
     }
 
     /// @notice Seed the jackpot.
@@ -276,6 +324,9 @@ contract Lootery is
         if (beneficiary == address(0)) {
             accruedCommunityFees += communityFeeShare;
         } else {
+            if (!_beneficiaries.contains(beneficiary)) {
+                revert UnknownBeneficiary(beneficiary);
+            }
             IERC20(prizeToken).safeTransfer(beneficiary, communityFeeShare);
         }
         emit BeneficiaryPaid(

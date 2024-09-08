@@ -153,6 +153,11 @@
   },
   {
     "inputs": [],
+    "name": "EmptyDisplayName",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "FailedInnerCall",
     "type": "error"
   },
@@ -428,6 +433,17 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      }
+    ],
+    "name": "UnknownBeneficiary",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint8[]",
         "name": "picks",
         "type": "uint8[]"
@@ -521,6 +537,25 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "displayName",
+        "type": "string"
+      }
+    ],
+    "name": "BeneficiaryAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
@@ -539,6 +574,19 @@
       }
     ],
     "name": "BeneficiaryPaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      }
+    ],
+    "name": "BeneficiaryRemoved",
     "type": "event"
   },
   {
@@ -919,6 +967,43 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "beneficiaries",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "addresses",
+        "type": "address[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "names",
+        "type": "string[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      }
+    ],
+    "name": "beneficiaryDisplayNames",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
       }
     ],
     "stateMutability": "view",
@@ -1605,6 +1690,35 @@
     ],
     "name": "setApprovalForAll",
     "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "displayName",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "isBeneficiary",
+        "type": "bool"
+      }
+    ],
+    "name": "setBeneficiary",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "didMutate",
+        "type": "bool"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },

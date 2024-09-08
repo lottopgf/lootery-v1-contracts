@@ -23,6 +23,11 @@
   },
   {
     "inputs": [],
+    "name": "EmptyDisplayName",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "GameAlreadyDrawn",
     "type": "error"
   },
@@ -245,6 +250,17 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      }
+    ],
+    "name": "UnknownBeneficiary",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint8[]",
         "name": "picks",
         "type": "uint8[]"
@@ -338,6 +354,25 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "displayName",
+        "type": "string"
+      }
+    ],
+    "name": "BeneficiaryAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
@@ -356,6 +391,19 @@
       }
     ],
     "name": "BeneficiaryPaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      }
+    ],
+    "name": "BeneficiaryRemoved",
     "type": "event"
   },
   {

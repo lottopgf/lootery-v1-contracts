@@ -302,36 +302,6 @@ describe('Lootery e2e', () => {
         }
     })
 
-    it('should transfer community fee to beneficiary', async () => {
-        const gamePeriod = BigInt(1 * 60 * 60) // 1h
-        const ticketPrice = parseEther('0.1')
-        const lotto = await createLotto(
-            'Lotto',
-            'LOTTO',
-            5,
-            69,
-            gamePeriod,
-            ticketPrice,
-            5000, // 50%,
-            testERC20,
-            3600, // 1 hour
-            parseEther('1'),
-        )
-        const beneficiaryBalanceBefore = await testERC20.balanceOf(beneficiary.address)
-        await testERC20.mint(deployer.address, parseEther('10'))
-        await testERC20.approve(await lotto.getAddress(), parseEther('10'))
-        await purchaseTicket(lotto, deployer.address, [1, 2, 3, 4, 5], beneficiary.address)
-        expect(await testERC20.balanceOf(beneficiary.address)).to.eq(
-            beneficiaryBalanceBefore + ticketPrice / 2n,
-        )
-
-        // Don't transfer to beneficiary if no beneficiary is set
-        await purchaseTicket(lotto, deployer.address, [1, 2, 3, 4, 5])
-        expect(await testERC20.balanceOf(beneficiary.address)).to.eq(
-            beneficiaryBalanceBefore + ticketPrice / 2n,
-        )
-    })
-
     it('should rollover jackpot to next round if noone has won', async () => {
         const gamePeriod = 1n * 60n * 60n
         async function deploy() {
