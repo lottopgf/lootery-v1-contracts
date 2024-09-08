@@ -1061,6 +1061,8 @@ describe('Lootery', () => {
             const amount = parseEther('10')
             const notPrizeToken = await new TestERC20__factory(deployer).deploy(deployer.address)
             await notPrizeToken.mint(await lotto.getAddress(), amount)
+            await lotto.setJackpot(parseEther('1')) // should be ignored
+            await lotto.setAccruedCommunityFees(parseEther('1')) // should be ignored
 
             // Rescue tokens
             await lotto.rescueTokens(await notPrizeToken.getAddress())
