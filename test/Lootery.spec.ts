@@ -78,7 +78,19 @@ describe('Lootery', () => {
     })
 
     describe('#receive', () => {
-        //
+        it('should receive ETH', async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+
+            await expect(
+                deployer.sendTransaction({ to: await lotto.getAddress(), value: parseEther('1') }),
+            )
+                .to.emit(lotto, 'Received')
+                .withArgs(deployer.address, parseEther('1'))
+        })
     })
 
     describe('#init', () => {
