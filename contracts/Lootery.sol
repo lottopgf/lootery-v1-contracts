@@ -358,8 +358,6 @@ contract Lootery is
         } else {
             // Case #2: Tickets were sold
             currentGame.state = GameState.DrawPending;
-            // If there's already a request inflight, we have a bug somewhere
-            assert(randomnessRequest.requestId == 0);
 
             // Assert that we have enough in operational funds so as to not eat
             // into jackpots or whatever else.
