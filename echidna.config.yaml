@@ -1,0 +1,4 @@
+testMode: "assertion"
+format: "text"
+coverage: true
+corpusDir: "corpus"

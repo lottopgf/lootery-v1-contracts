@@ -13,7 +13,8 @@
     "format:check": "yarn prettier --check .",
     "test": "yarn hardhat --network hardhat test",
     "clean": "yarn hardhat clean",
-    "coverage": "yarn hardhat coverage"
+    "coverage": "yarn hardhat coverage",
+    "fuzz": "echidna . --contract EchidnaLootery --config echidna.config.yaml"
   },
   "keywords": [],
   "author": "The LottoPGF Team",
