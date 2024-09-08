@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {FeistelShuffleOptimised} from "./FeistelShuffleOptimised.sol";
+import {FeistelShuffleOptimised} from "solshuffle/contracts/FeistelShuffleOptimised.sol";
 import {Sort} from "./Sort.sol";
 
 library Pick {

@@ -72,6 +72,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     }
 
     /// @notice Describes an inflight randomness request
+    /// TODO: Don't rely on requestId not being 0, add a flag or something
     struct RandomnessRequest {
         uint208 requestId;
         uint48 timestamp;
@@ -102,7 +103,9 @@ interface ILootery is IRandomiserCallback, IERC721 {
         address whomst,
         uint256 value
     );
+    event NoWin(uint256 pickId, uint256 winningPickId);
     event DrawSkipped(uint256 indexed gameId);
+    event RandomnessRequested(uint208 requestId, uint48 timestamp);
     event Received(address sender, uint256 amount);
     event JackpotSeeded(address indexed whomst, uint256 amount);
     event JackpotRollover(
@@ -112,13 +115,8 @@ interface ILootery is IRandomiserCallback, IERC721 {
         uint256 nextUnclaimedPayouts,
         uint256 nextJackpot
     );
-    event GasRefundAttempted(
-        address indexed to,
-        uint256 value,
-        uint256 gasUsed,
-        uint256 gasPrice,
-        bool success
-    );
+    event AccruedCommunityFeesWithdrawn(address indexed to, uint256 amount);
+    event OperationalFundsWithdrawn(address indexed to, uint256 amount);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidNumPicks(uint256 numPicks);
@@ -133,12 +131,10 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error InvalidBallValue(uint256 ballValue);
     error GameAlreadyDrawn();
     error UnexpectedState(GameState actual);
-    error RequestAlreadyInFlight(uint256 requestId, uint256 timestamp);
     error RequestIdOverflow(uint256 requestId);
     error CallerNotRandomiser(address caller);
     error RequestIdMismatch(uint256 actual, uint208 expected);
     error InsufficientRandomWords();
-    error NoWin(uint256 pickId, uint256 winningPickId);
     error WaitLonger(uint256 deadline);
     error InsufficientOperationalFunds(uint256 have, uint256 want);
     error ClaimWindowMissed(uint256 tokenId);

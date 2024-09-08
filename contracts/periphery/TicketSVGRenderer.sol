@@ -12,10 +12,6 @@ contract TicketSVGRenderer is ITicketSVGRenderer, ERC165 {
     uint256 private constant NUMBERS_PER_ROW = 5;
     uint256 private constant ROW_HEIGHT = 38;
 
-    error EmptyPicks();
-    error UnsortedPicks(uint8[] picks);
-    error OutOfRange(uint8 pick, uint8 maxPick);
-
     /// @notice See {IERC165-supportsInterface}.
     function supportsInterface(
         bytes4 interfaceId

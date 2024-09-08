@@ -4,6 +4,10 @@ pragma solidity ^0.8;
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 interface ITicketSVGRenderer is IERC165 {
+    error EmptyPicks();
+    error UnsortedPicks(uint8[] picks);
+    error OutOfRange(uint8 pick, uint8 maxPick);
+
     /// @notice Render raw SVG
     /// @param name Name/title of the ticket
     /// @param picks Picks must be sorted ascendingly

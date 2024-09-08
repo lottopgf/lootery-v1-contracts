@@ -7,6 +7,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IRandomiserCallback} from "./interfaces/IRandomiserCallback.sol";
@@ -70,8 +71,8 @@ contract Lootery is
     /// @notice Ticket SVG renderer
     address public ticketSVGRenderer;
 
-    /// @dev Current token id
-    uint256 private currentTokenId;
+    /// @dev Total supply of tokens/tickets, also used to determine next tokenId
+    uint256 public totalSupply;
     /// @notice Current state of the game
     CurrentGame public currentGame;
     /// @notice Running jackpot
@@ -92,8 +93,8 @@ contract Lootery is
     mapping(uint256 gameId => uint256[]) public claimedWinningTickets;
     /// @notice Accrued community fee share (wei)
     uint256 public accruedCommunityFees;
-    /// @notice When nonzero, this gameId will be the last
-    uint256 public apocalypseGameId;
+    /// @notice When true, current game will be the last
+    bool public isApocalypseMode;
     /// @notice Timestamp of when jackpot was last seeded
     uint256 public jackpotLastSeededAt;
 
@@ -106,6 +107,8 @@ contract Lootery is
         emit Received(msg.sender, msg.value);
     }
 
+    /// @notice Only allow calls in the specified game state
+    /// @param state Required game state
     modifier onlyInState(GameState state) {
         if (currentGame.state != state) {
             revert UnexpectedState(currentGame.state);
@@ -194,17 +197,14 @@ contract Lootery is
 
     /// @notice Pick tickets and increase jackpot
     /// @param tickets Tickets!
-    /// @param jackpotShare Amount of jackpot fees generated from purchase.
     function _pickTickets(
-        Ticket[] calldata tickets,
-        uint256 jackpotShare
+        Ticket[] calldata tickets
     ) internal onlyInState(GameState.Purchase) {
         CurrentGame memory currentGame_ = currentGame;
         uint256 currentGameId = currentGame_.id;
 
         uint256 ticketsCount = tickets.length;
         Game memory game = gameData[currentGameId];
-        jackpot += jackpotShare;
         gameData[currentGameId] = Game({
             ticketsSold: game.ticketsSold + uint64(ticketsCount),
             startedAt: game.startedAt,
@@ -213,8 +213,8 @@ contract Lootery is
 
         uint256 numPicks_ = numPicks;
         uint256 maxBallValue_ = maxBallValue;
-        uint256 startingTokenId = currentTokenId + 1;
-        currentTokenId += ticketsCount;
+        uint256 startingTokenId = totalSupply + 1;
+        totalSupply += ticketsCount;
         for (uint256 t; t < ticketsCount; ++t) {
             address whomst = tickets[t].whomst;
             uint8[] memory picks = tickets[t].picks;
@@ -254,7 +254,7 @@ contract Lootery is
     /// @notice Allow owner to pick tickets for free.
     /// @param tickets Tickets!
     function ownerPick(Ticket[] calldata tickets) external onlyOwner {
-        _pickTickets(tickets, 0);
+        _pickTickets(tickets);
     }
 
     /// @notice Purchase a ticket
@@ -284,20 +284,14 @@ contract Lootery is
             communityFeeShare
         );
 
-        _pickTickets(tickets, jackpotShare);
+        jackpot += jackpotShare;
+        _pickTickets(tickets);
     }
 
     /// @notice Draw numbers, picking potential jackpot winners and ending the
     ///     current game. This should be automated by a keeper.
     function draw() external onlyInState(GameState.Purchase) {
-        uint256 gasUsed = gasleft();
-        // Assert game is still playable
-        // Assert we're in the correct state
-        CurrentGame memory currentGame_ = currentGame;
-        if (currentGame_.state != GameState.Purchase) {
-            revert UnexpectedState(currentGame_.state);
-        }
-        Game memory game = gameData[currentGame_.id];
+        Game memory game = gameData[currentGame.id];
         // Assert that the game is actually over
         uint256 gameDeadline = (game.startedAt + gamePeriod);
         if (block.timestamp < gameDeadline) {
@@ -308,28 +302,18 @@ contract Lootery is
         // slither-disable-next-line incorrect-equality
         if (game.ticketsSold == 0) {
             // Case #1: No tickets were sold, just skip the game
-            emit DrawSkipped(currentGame_.id);
+            emit DrawSkipped(currentGame.id);
             _setupNextGame();
         } else {
             // Case #2: Tickets were sold
             currentGame.state = GameState.DrawPending;
-            // Assert there's not already a request inflight, unless some
-            // reasonable amount of time has already passed
-            RandomnessRequest memory randReq = randomnessRequest;
-            if (
-                randReq.requestId != 0 &&
-                (block.timestamp <= (randReq.timestamp + 1 hours))
-            ) {
-                revert RequestAlreadyInFlight(
-                    randReq.requestId,
-                    randReq.timestamp
-                );
-            }
+            // If there's already a request inflight, we have a bug somewhere
+            assert(randomnessRequest.requestId == 0);
 
             // Assert that we have enough in operational funds so as to not eat
             // into jackpots or whatever else.
             uint256 requestPrice = IAnyrand(randomiser).getRequestPrice(
-                500_000
+                500_000 /** TODO: Really need to make this configurable */
             );
             if (address(this).balance < requestPrice) {
                 revert InsufficientOperationalFunds(
@@ -349,29 +333,11 @@ contract Lootery is
                 requestId: uint208(requestId),
                 timestamp: uint48(block.timestamp)
             });
-        }
-
-        // Refund gas to caller (+10% bounty)
-        gasUsed -= gasleft();
-        gasUsed += 21_000 + 9000; // total gas <100k
-        // Cap gas refund
-        gasUsed = gasUsed > 150_000 ? 150_000 : gasUsed;
-        // Everything below this line costs an additional ~9000 gas
-        uint256 gasRefund = ((gasUsed * tx.gasprice) * 1.1e4) / 1e4;
-        if (address(this).balance < gasRefund) {
-            revert InsufficientOperationalFunds(
-                address(this).balance,
-                gasRefund
+            emit RandomnessRequested(
+                uint208(requestId),
+                uint48(block.timestamp)
             );
         }
-        (bool success, ) = msg.sender.call{value: gasRefund}("");
-        emit GasRefundAttempted(
-            msg.sender,
-            gasRefund,
-            gasUsed,
-            tx.gasprice,
-            success
-        );
     }
 
     /// @notice Callback for VRF fulfiller.
@@ -383,14 +349,13 @@ contract Lootery is
         if (msg.sender != randomiser) {
             revert CallerNotRandomiser(msg.sender);
         }
+        if (randomWords.length == 0) {
+            revert InsufficientRandomWords();
+        }
         if (randomnessRequest.requestId != requestId) {
             revert RequestIdMismatch(requestId, randomnessRequest.requestId);
         }
         randomnessRequest = RandomnessRequest({requestId: 0, timestamp: 0});
-
-        if (randomWords.length == 0) {
-            revert InsufficientRandomWords();
-        }
 
         // Pick winning numbers
         uint8[] memory balls = computeWinningBalls(randomWords[0]);
@@ -414,7 +379,7 @@ contract Lootery is
         uint248 gameId = currentGame.id;
 
         GameState nextState;
-        if (apocalypseGameId == gameId + 1) {
+        if (isApocalypseMode) {
             // Apocalypse mode, kill game forever
             nextState = GameState.Dead;
         } else {
@@ -435,6 +400,7 @@ contract Lootery is
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
+        uint256 total0 = currentUnclaimedPayouts + currentJackpot;
         if (numWinners == 0) {
             if (nextState == GameState.Dead) {
                 // No winners, but apocalypse mode
@@ -467,8 +433,9 @@ contract Lootery is
             }
         } else {
             // Winners! Jackpot resets to zero for next game, and current
-            // jackpot goes into unclaimed payouts
-            uint256 nextUnclaimedPayouts = currentJackpot;
+            // jackpot+unclaimed goes into next game's unclaimed payouts
+            uint256 nextUnclaimedPayouts = currentJackpot +
+                currentUnclaimedPayouts;
             unclaimedPayouts = nextUnclaimedPayouts;
             jackpot = 0;
             emit JackpotRollover(
@@ -479,6 +446,9 @@ contract Lootery is
                 0
             );
         }
+
+        // Invariant: the total of jackpots + unclaimed payouts is conserved
+        assert(jackpot + unclaimedPayouts == total0);
     }
 
     /// @notice Claim a share of the jackpot with a winning ticket.
@@ -523,11 +493,8 @@ contract Lootery is
             uint256 prizeShare = unclaimedPayouts / game.ticketsSold;
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
             emit ConsolationClaimed(tokenId, ticket.gameId, whomst, prizeShare);
-            return;
-        }
-
-        if (winningPickId == ticket.pickId) {
-            // NB: `numWinners` != 0 in this path
+        } else if (winningPickId == ticket.pickId) {
+            assert(numWinners > 0);
             // This ticket did have the winning numbers
             uint256 prizeShare = unclaimedPayouts /
                 (numWinners - numClaimedWinningTickets);
@@ -539,10 +506,9 @@ contract Lootery is
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
 
             emit WinningsClaimed(tokenId, ticket.gameId, whomst, prizeShare);
-            return;
+        } else {
+            emit NoWin(ticket.pickId, winningPickId);
         }
-
-        revert NoWin(ticket.pickId, winningPickId);
     }
 
     /// @notice Withdraw accrued community fees.
@@ -550,26 +516,27 @@ contract Lootery is
         uint256 totalAccrued = accruedCommunityFees;
         accruedCommunityFees = 0;
         IERC20(prizeToken).safeTransfer(msg.sender, totalAccrued);
+        emit AccruedCommunityFeesWithdrawn(msg.sender, totalAccrued);
     }
 
     /// @notice Set this game as the last game of the lottery.
     ///     aka invoke apocalypse mode.
     function kill() external onlyOwner onlyInState(GameState.Purchase) {
-        if (apocalypseGameId != 0) {
+        if (isApocalypseMode) {
             // Already set
             revert GameInactive();
         }
-        apocalypseGameId = currentGame.id + 1;
+        isApocalypseMode = true;
     }
 
     /// @notice Withdraw any ETH (used for VRF requests).
     function rescueETH() external onlyOwner {
-        (bool success, bytes memory data) = msg.sender.call{
-            value: address(this).balance
-        }("");
+        uint256 amount = address(this).balance;
+        (bool success, bytes memory data) = msg.sender.call{value: amount}("");
         if (!success) {
-            revert TransferFailure(msg.sender, address(this).balance, data);
+            revert TransferFailure(msg.sender, amount, data);
         }
+        emit OperationalFundsWithdrawn(msg.sender, amount);
     }
 
     /// @notice Allow owner to rescue any tokens sent to the contract;
@@ -577,13 +544,15 @@ contract Lootery is
     /// @param tokenAddress Address of token to withdraw
     function rescueTokens(address tokenAddress) external onlyOwner {
         uint256 amount = IERC20(tokenAddress).balanceOf(address(this));
+        uint256 locked = accruedCommunityFees + unclaimedPayouts + jackpot;
+        assert(amount >= locked);
         if (tokenAddress == prizeToken) {
             // TODO: This no longer works if we don't limit claiming jackpot
             // to last game only
             // 1. Limit claiming jackpot to last game only and rollover
             //  jackpot from 2 games ago if unclaimed (during finalisation)
             // 2. Count total locked as jackpot (+20k gas every ticket)
-            amount = amount - accruedCommunityFees - unclaimedPayouts - jackpot;
+            amount -= locked;
         }
 
         IERC20(tokenAddress).safeTransfer(msg.sender, amount);
@@ -609,12 +578,11 @@ contract Lootery is
     /// @notice Set the SVG renderer for tickets (privileged)
     /// @param renderer Address of renderer contract
     function _setTicketSVGRenderer(address renderer) internal {
-        if (
-            renderer == address(0) ||
-            !ITicketSVGRenderer(renderer).supportsInterface(
+        bool isValidRenderer = renderer != address(0) &&
+            IERC165(renderer).supportsInterface(
                 type(ITicketSVGRenderer).interfaceId
-            )
-        ) {
+            );
+        if (!isValidRenderer) {
             revert InvalidTicketSVGRenderer(renderer);
         }
         ticketSVGRenderer = renderer;
