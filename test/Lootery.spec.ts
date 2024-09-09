@@ -7,8 +7,8 @@ import {
     Lootery__factory,
     MockRandomiser,
     MockRandomiser__factory,
-    TestERC20__factory,
-    type TestERC20,
+    MockERC20__factory,
+    type MockERC20,
     TicketSVGRenderer__factory,
     TicketSVGRenderer,
     ILootery,
@@ -16,7 +16,7 @@ import {
     LooteryHarness,
     ERC20,
     RevertingETHReceiver__factory,
-    TestERC721__factory,
+    MockERC721__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import { ZeroAddress, parseEther } from 'ethers'
@@ -46,7 +46,7 @@ const allStates = Object.values(GameState).filter(
 
 describe('Lootery', () => {
     let mockRandomiser: MockRandomiser
-    let testERC20: TestERC20
+    let testERC20: MockERC20
     let deployer: SignerWithAddress
     let bob: SignerWithAddress
     let alice: SignerWithAddress
@@ -57,7 +57,7 @@ describe('Lootery', () => {
     beforeEach(async () => {
         ;[deployer, bob, alice, beneficiary] = await ethers.getSigners()
         mockRandomiser = await new MockRandomiser__factory(deployer).deploy()
-        testERC20 = await new TestERC20__factory(deployer).deploy(deployer)
+        testERC20 = await new MockERC20__factory(deployer).deploy(deployer)
         ticketSVGRenderer = await new TicketSVGRenderer__factory(deployer).deploy()
 
         validConfig = {
@@ -1059,7 +1059,7 @@ describe('Lootery', () => {
         it('should rescue tokens other than the prize token', async () => {
             // Load contract with random token
             const amount = parseEther('10')
-            const notPrizeToken = await new TestERC20__factory(deployer).deploy(deployer.address)
+            const notPrizeToken = await new MockERC20__factory(deployer).deploy(deployer.address)
             await notPrizeToken.mint(await lotto.getAddress(), amount)
             await lotto.setJackpot(parseEther('1')) // should be ignored
             await lotto.setAccruedCommunityFees(parseEther('1')) // should be ignored
@@ -1179,10 +1179,10 @@ describe('Lootery', () => {
             // EOA
             await expect(lotto.setTicketSVGRenderer(alice.address)).to.be.reverted
             // Contract that doesn't implement ERC165
-            const notRenderer0 = await new TestERC20__factory(deployer).deploy(deployer.address)
+            const notRenderer0 = await new MockERC20__factory(deployer).deploy(deployer.address)
             await expect(lotto.setTicketSVGRenderer(await notRenderer0.getAddress())).to.be.reverted
             // Contract that implements ERC165
-            const notRenderer1 = await new TestERC721__factory(deployer).deploy(deployer.address)
+            const notRenderer1 = await new MockERC721__factory(deployer).deploy(deployer.address)
             await expect(lotto.setTicketSVGRenderer(await notRenderer1.getAddress()))
                 .to.be.revertedWithCustomError(lotto, 'InvalidTicketSVGRenderer')
                 .withArgs(await notRenderer1.getAddress())

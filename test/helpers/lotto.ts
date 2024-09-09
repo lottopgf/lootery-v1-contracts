@@ -4,7 +4,7 @@ import {
     Lootery__factory,
     LooteryHarness__factory,
     MockRandomiser__factory,
-    TestERC20,
+    MockERC20,
     TicketSVGRenderer__factory,
 } from '../../typechain-types'
 import { deployProxy } from './deployProxy'
@@ -49,7 +49,7 @@ export async function deployLotto({
     deployer: SignerWithAddress
     /** seconds */
     gamePeriod: bigint
-    prizeToken: TestERC20
+    prizeToken: MockERC20
     numPicks?: bigint
     maxBallValue?: bigint
     /** seconds */

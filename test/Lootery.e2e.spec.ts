@@ -12,8 +12,8 @@ import {
     Lootery__factory,
     MockRandomiser,
     MockRandomiser__factory,
-    TestERC20__factory,
-    type TestERC20,
+    MockERC20__factory,
+    type MockERC20,
     WETH9__factory,
     LooteryETHAdapter__factory,
     TicketSVGRenderer__factory,
@@ -38,7 +38,7 @@ import { computePickId, deployLotto, purchaseTicket, slikpik } from './helpers/l
 
 describe('Lootery e2e', () => {
     let mockRandomiser: MockRandomiser
-    let testERC20: TestERC20
+    let testERC20: MockERC20
     let factory: LooteryFactory
     let deployer: SignerWithAddress
     let bob: SignerWithAddress
@@ -48,7 +48,7 @@ describe('Lootery e2e', () => {
     beforeEach(async () => {
         ;[deployer, bob, alice, beneficiary] = await ethers.getSigners()
         mockRandomiser = await new MockRandomiser__factory(deployer).deploy()
-        testERC20 = await new TestERC20__factory(deployer).deploy(deployer)
+        testERC20 = await new MockERC20__factory(deployer).deploy(deployer)
         const looteryImpl = await new Lootery__factory(deployer).deploy()
         ticketSVGRenderer = await new TicketSVGRenderer__factory(deployer).deploy()
         factory = await deployProxy({
