@@ -5,11 +5,11 @@ import {hevm} from "../IHevm.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ILootery, Lootery} from "../../../contracts/Lootery.sol";
 import {MockRandomiser} from "../MockRandomiser.sol";
-import {TestERC20} from "../TestERC20.sol";
+import {MockERC20} from "../MockERC20.sol";
 import {TicketSVGRenderer} from "../../periphery/TicketSVGRenderer.sol";
 
 contract EchidnaLootery {
-    TestERC20 internal prizeToken;
+    MockERC20 internal prizeToken;
     MockRandomiser internal randomiser;
     Lootery internal impl;
     ILootery.InitConfig internal config;
@@ -17,7 +17,7 @@ contract EchidnaLootery {
     constructor() {
         impl = new Lootery();
         randomiser = new MockRandomiser();
-        prizeToken = new TestERC20(address(this));
+        prizeToken = new MockERC20(address(this));
         TicketSVGRenderer ticketSVGRenderer = new TicketSVGRenderer();
         config = ILootery.InitConfig({
             owner: address(this),
