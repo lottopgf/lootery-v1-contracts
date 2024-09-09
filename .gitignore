@@ -18,3 +18,7 @@ artifacts
 circuits/proofs/
 circuits/target/
 crs/
+
+# Echidna
+crytic-export
+corpus
