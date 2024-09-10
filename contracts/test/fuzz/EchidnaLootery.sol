@@ -7,41 +7,52 @@ import {ILootery, Lootery} from "../../../contracts/Lootery.sol";
 import {MockRandomiser} from "../MockRandomiser.sol";
 import {MockERC20} from "../MockERC20.sol";
 import {TicketSVGRenderer} from "../../periphery/TicketSVGRenderer.sol";
+import {WETH9} from "../WETH9.sol";
+import {LooteryETHAdapter} from "../../periphery/LooteryETHAdapter.sol";
 
 contract EchidnaLootery {
     MockERC20 internal prizeToken;
     MockRandomiser internal randomiser;
     Lootery internal impl;
-    ILootery.InitConfig internal config;
+    TicketSVGRenderer internal ticketSVGRenderer;
+    WETH9 internal weth;
 
     constructor() {
         impl = new Lootery();
         randomiser = new MockRandomiser();
         prizeToken = new MockERC20(address(this));
-        TicketSVGRenderer ticketSVGRenderer = new TicketSVGRenderer();
-        config = ILootery.InitConfig({
-            owner: address(this),
-            name: "Lootery Test",
-            symbol: "TEST",
-            numPicks: 5,
-            maxBallValue: 36,
-            gamePeriod: 10 minutes,
-            ticketPrice: 0.1 ether,
-            communityFeeBps: 0.5e4,
-            randomiser: address(randomiser),
-            prizeToken: address(prizeToken),
-            seedJackpotDelay: 10 minutes,
-            seedJackpotMinValue: 0.1 ether,
-            ticketSVGRenderer: address(ticketSVGRenderer)
-        });
+        weth = new WETH9();
+        ticketSVGRenderer = new TicketSVGRenderer();
     }
 
+    function defaultConfig()
+        internal
+        view
+        returns (ILootery.InitConfig memory)
+    {
+        return
+            ILootery.InitConfig({
+                owner: address(this),
+                name: "Lootery Test",
+                symbol: "TEST",
+                numPicks: 5,
+                maxBallValue: 36,
+                gamePeriod: 10 minutes,
+                ticketPrice: 0.1 ether,
+                communityFeeBps: 0.5e4,
+                randomiser: address(randomiser),
+                prizeToken: address(prizeToken),
+                seedJackpotDelay: 10 minutes,
+                seedJackpotMinValue: 0.1 ether,
+                ticketSVGRenderer: address(ticketSVGRenderer)
+            });
+    }
+
+    /// @notice Create a new Lootery contract
+    /// @param config config
     function createLootery(
-        uint8 numPicks,
-        uint8 maxBallValue
+        ILootery.InitConfig memory config
     ) internal returns (Lootery lootery) {
-        config.numPicks = numPicks;
-        config.maxBallValue = maxBallValue;
         ERC1967Proxy proxy = new ERC1967Proxy(
             address(impl),
             abi.encodeWithSelector(Lootery.init.selector, config)
@@ -104,12 +115,15 @@ contract EchidnaLootery {
         address[] calldata addresses,
         uint256 runs
     ) public {
-        numPicks = 1 + (numPicks % (type(uint8).max - 1));
-        maxBallValue = numPicks + (maxBallValue % (type(uint8).max - numPicks));
         numTickets = numTickets % 32; // Max echidna array len=32
         runs = 1 + (runs % 19);
 
-        Lootery lootery = createLootery(numPicks, maxBallValue);
+        ILootery.InitConfig memory config = defaultConfig();
+        config.numPicks = 1 + (numPicks % (type(uint8).max - 1));
+        config.maxBallValue =
+            numPicks +
+            (maxBallValue % (type(uint8).max - numPicks));
+        Lootery lootery = createLootery(config);
 
         for (uint256 i = 0; i < runs; i++) {
             (ILootery.GameState state0, uint256 gameId0) = lootery
@@ -153,7 +167,10 @@ contract EchidnaLootery {
     ///     jackpot+fees is always greater than or equal to the balance of
     ///     the prize token balance in the contract
     function test_jackpotAndFeesGtBalance() public {
-        Lootery lootery = createLootery(5, 36);
+        ILootery.InitConfig memory config = defaultConfig();
+        config.numPicks = 5;
+        config.maxBallValue = 36;
+        Lootery lootery = createLootery(config);
         assert(
             lootery.jackpot() + lootery.accruedCommunityFees() >=
                 prizeToken.balanceOf(address(lootery))
@@ -166,13 +183,70 @@ contract EchidnaLootery {
         uint8 maxBallValue,
         uint256 seed
     ) public {
-        numPicks = 1 + (numPicks % (type(uint8).max - 1));
-        maxBallValue = numPicks + (maxBallValue % (type(uint8).max - numPicks));
-        Lootery lootery = createLootery(numPicks, maxBallValue);
+        ILootery.InitConfig memory config = defaultConfig();
+        config.numPicks = 1 + (numPicks % (type(uint8).max - 1));
+        config.maxBallValue =
+            numPicks +
+            (maxBallValue % (type(uint8).max - numPicks));
+        Lootery lootery = createLootery(config);
         uint8[] memory balls = lootery.computeWinningBalls(seed);
         uint8 lastPick = 0;
         for (uint256 i = 0; i < balls.length; i++) {
             assert(balls[i] > lastPick);
         }
+    }
+
+    /// @notice Purchase tickets through ETH adapter without side effects
+    /// @param seed Random seed
+    /// @param numTickets Number of tickets to buy
+    /// @param addresses Addresses to buy tickets for
+    function test_purchaseWithETH(
+        uint256 seed,
+        uint256 numTickets,
+        address[] calldata addresses
+    ) public {
+        numTickets = 1 + (numTickets % (32 - 1));
+        ILootery.InitConfig memory config = defaultConfig();
+        config.prizeToken = address(weth);
+        Lootery lootery = createLootery(config);
+        LooteryETHAdapter adapter = new LooteryETHAdapter(payable(weth));
+
+        // Tickets
+        ILootery.Ticket[] memory tickets = new ILootery.Ticket[](numTickets);
+        for (uint256 i = 0; i < numTickets; i++) {
+            tickets[i] = ILootery.Ticket({
+                whomst: addresses[i],
+                picks: lootery.computePicks(seed)
+            });
+            seed = uint256(keccak256(abi.encodePacked(seed)));
+        }
+
+        // Purchase tix through adapter
+        uint256 totalPrice = lootery.ticketPrice() * numTickets;
+        hevm.deal(address(this), type(uint256).max);
+        adapter.purchase{value: totalPrice}(
+            payable(lootery),
+            tickets,
+            address(0)
+        );
+        assert(address(adapter).balance == 0);
+    }
+
+    /// @notice Seed the jackpot with ETH
+    /// @param amount Amount of ETH to seed the jackpot with
+    function test_seedJackpotWithETH(uint256 amount) public {
+        ILootery.InitConfig memory config = defaultConfig();
+        config.prizeToken = address(weth);
+        Lootery lootery = createLootery(config);
+        uint256 minJackpotSeed = lootery.seedJackpotMinValue();
+        amount =
+            minJackpotSeed +
+            (amount % (type(uint256).max - minJackpotSeed));
+        LooteryETHAdapter adapter = new LooteryETHAdapter(payable(weth));
+
+        hevm.deal(address(this), amount);
+        adapter.seedJackpot{value: amount}(payable(lootery));
+        assert(lootery.jackpot() == amount);
+        assert(address(adapter).balance == 0);
     }
 }

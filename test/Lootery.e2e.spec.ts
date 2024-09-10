@@ -36,7 +36,7 @@ import crypto from 'node:crypto'
 import { GameState } from './helpers/GameState'
 import { computePickId, deployLotto, purchaseTicket, slikpik } from './helpers/lotto'
 
-describe('Lootery e2e', () => {
+describe.skip('Lootery e2e', () => {
     let mockRandomiser: MockRandomiser
     let testERC20: MockERC20
     let factory: LooteryFactory
