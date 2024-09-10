@@ -5,7 +5,7 @@ import {Lootery} from "../Lootery.sol";
 
 contract LooteryHarness is Lootery {
     function pickTickets(Ticket[] calldata tickets) external {
-        return _pickTickets(tickets);
+        _pickTickets(tickets);
     }
 
     function setupNextGame() external {

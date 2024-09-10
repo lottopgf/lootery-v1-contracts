@@ -502,7 +502,9 @@ contract Lootery is
 
     /// @notice Claim a share of the jackpot with a winning ticket.
     /// @param tokenId Token id of the ticket (will be burnt)
-    function claimWinnings(uint256 tokenId) external {
+    function claimWinnings(
+        uint256 tokenId
+    ) external returns (uint256 prizeShare) {
         // Only allow claims during Purchase state so we don't have to deal
         // with intermediate states between gameIds.
         // Dead state is also ok since the entire game has ended forever.
@@ -539,13 +541,20 @@ contract Lootery is
             // No jackpot winners, and game is no longer active!
             // Jackpot is shared between all tickets
             // Invariant: `ticketsSold[gameId] > 0`
-            uint256 prizeShare = unclaimedPayouts / game.ticketsSold;
+            prizeShare =
+                unclaimedPayouts /
+                (game.ticketsSold - numClaimedWinningTickets);
+            // Decrease unclaimed payouts by the amount just claimed
+            unclaimedPayouts -= prizeShare;
+            // Record that this ticket has claimed its winnings
+            claimedWinningTickets[ticket.gameId].push(tokenId);
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
             emit ConsolationClaimed(tokenId, ticket.gameId, whomst, prizeShare);
         } else if (winningPickId == ticket.pickId) {
             assert(numWinners > 0);
             // This ticket did have the winning numbers
-            uint256 prizeShare = unclaimedPayouts /
+            prizeShare =
+                unclaimedPayouts /
                 (numWinners - numClaimedWinningTickets);
             // Decrease unclaimed payouts by the amount just claimed
             unclaimedPayouts -= prizeShare;
