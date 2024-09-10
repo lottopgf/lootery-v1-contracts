@@ -1,4 +1,6 @@
-testMode: "assertion"
+testMode: "property"
 format: "text"
 coverage: true
 corpusDir: "corpus"
+testLimit: 1000
+sender: ["0x10000", "0x20000", "0x30000"]
