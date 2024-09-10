@@ -1018,7 +1018,13 @@
       }
     ],
     "name": "claimWinnings",
-    "outputs": [],
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "prizeShare",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
