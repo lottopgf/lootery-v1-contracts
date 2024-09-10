@@ -61,18 +61,6 @@ contract EchidnaLootery {
         hevm.deal(address(lootery), 1 ether); // operational funds
     }
 
-    /// @notice Generate random picks
-    /// @param whomst Address to buy tickets for
-    /// @param seed Random seed
-    function slikpik(
-        Lootery lootery,
-        address whomst,
-        uint256 seed
-    ) internal view returns (ILootery.Ticket memory ticket) {
-        ticket.whomst = whomst;
-        ticket.picks = lootery.computePicks(seed);
-    }
-
     /// @notice Buy tickets
     /// @param seed Random seed
     /// @param numTickets Number of tickets to buy
