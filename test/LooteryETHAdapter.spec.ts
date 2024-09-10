@@ -23,11 +23,9 @@ describe('Lootery e2e', () => {
     let factory: LooteryFactory
     let deployer: SignerWithAddress
     let bob: SignerWithAddress
-    let alice: SignerWithAddress
-    let beneficiary: SignerWithAddress
     let ticketSVGRenderer: TicketSVGRenderer
     beforeEach(async () => {
-        ;[deployer, bob, alice, beneficiary] = await ethers.getSigners()
+        ;[deployer, bob] = await ethers.getSigners()
         mockRandomiser = await new MockRandomiser__factory(deployer).deploy()
         testERC20 = await new MockERC20__factory(deployer).deploy(deployer)
         const looteryImpl = await new Lootery__factory(deployer).deploy()
@@ -85,7 +83,7 @@ describe('Lootery e2e', () => {
                 ),
             ).to.be.revertedWith('Need to provide exact funds')
 
-            looteryETHAdapter.connect(bob).purchase(
+            await looteryETHAdapter.connect(bob).purchase(
                 lotto,
                 [
                     {
