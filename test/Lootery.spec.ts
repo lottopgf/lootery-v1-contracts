@@ -2,9 +2,6 @@ import { ethers } from 'hardhat'
 import * as hre from 'hardhat'
 import { time, setBalance, impersonateAccount } from '@nomicfoundation/hardhat-network-helpers'
 import {
-    LooteryFactory,
-    LooteryFactory__factory,
-    Lootery__factory,
     MockRandomiser,
     MockRandomiser__factory,
     MockERC20__factory,

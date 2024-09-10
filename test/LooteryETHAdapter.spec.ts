@@ -17,7 +17,7 @@ import { ZeroAddress, parseEther } from 'ethers'
 import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 
-describe('Lootery e2e', () => {
+describe('Lootery ETH Adapter', () => {
     let mockRandomiser: MockRandomiser
     let testERC20: MockERC20
     let factory: LooteryFactory
@@ -52,38 +52,24 @@ describe('Lootery e2e', () => {
         return Lootery__factory.connect(lottoAddress, deployer)
     }
 
-    describe('LooteryETHAdapter', () => {
-        it('should allow users to purchase tickets with ETH', async () => {
-            const weth9 = await new WETH9__factory(deployer).deploy()
-            const lotto = await createLotto(
-                'Lotto',
-                'LOTTO',
-                5,
-                69,
-                69420,
-                parseEther('0.1'),
-                5000, // 50%,
-                weth9,
-                3600, // 1 hour
-                parseEther('1'),
-            )
-            const looteryETHAdapter = await new LooteryETHAdapter__factory(deployer).deploy(weth9)
+    it('should allow users to purchase tickets with ETH', async () => {
+        const weth9 = await new WETH9__factory(deployer).deploy()
+        const lotto = await createLotto(
+            'Lotto',
+            'LOTTO',
+            5,
+            69,
+            69420,
+            parseEther('0.1'),
+            5000, // 50%,
+            weth9,
+            3600, // 1 hour
+            parseEther('1'),
+        )
+        const looteryETHAdapter = await new LooteryETHAdapter__factory(deployer).deploy(weth9)
 
-            expect(
-                looteryETHAdapter.connect(bob).purchase(
-                    lotto,
-                    [
-                        {
-                            whomst: bob.address,
-                            picks: [1n, 2n, 3n, 4n, 5n],
-                        },
-                    ],
-                    ZeroAddress,
-                    { value: parseEther('1') },
-                ),
-            ).to.be.revertedWith('Need to provide exact funds')
-
-            await looteryETHAdapter.connect(bob).purchase(
+        expect(
+            looteryETHAdapter.connect(bob).purchase(
                 lotto,
                 [
                     {
@@ -92,31 +78,41 @@ describe('Lootery e2e', () => {
                     },
                 ],
                 ZeroAddress,
-                { value: parseEther('0.1') },
-            )
-        })
+                { value: parseEther('1') },
+            ),
+        ).to.be.revertedWith('Need to provide exact funds')
 
-        it('should allow users to seed jackpot with ETH', async () => {
-            const weth9 = await new WETH9__factory(deployer).deploy()
-            const lotto = await createLotto(
-                'Lotto',
-                'LOTTO',
-                5,
-                69,
-                69420,
-                parseEther('0.1'),
-                5000, // 50%,
-                weth9,
-                3600, // 1 hour
-                parseEther('1'),
-            )
-            const looteryETHAdapter = await new LooteryETHAdapter__factory(deployer).deploy(weth9)
+        await looteryETHAdapter.connect(bob).purchase(
+            lotto,
+            [
+                {
+                    whomst: bob.address,
+                    picks: [1n, 2n, 3n, 4n, 5n],
+                },
+            ],
+            ZeroAddress,
+            { value: parseEther('0.1') },
+        )
+    })
 
-            await expect(
-                looteryETHAdapter.connect(bob).seedJackpot(lotto, { value: parseEther('10') }),
-            )
-                .to.emit(looteryETHAdapter, 'JackpotSeeded')
-                .withArgs(bob.address, parseEther('10'))
-        })
+    it('should allow users to seed jackpot with ETH', async () => {
+        const weth9 = await new WETH9__factory(deployer).deploy()
+        const lotto = await createLotto(
+            'Lotto',
+            'LOTTO',
+            5,
+            69,
+            69420,
+            parseEther('0.1'),
+            5000, // 50%,
+            weth9,
+            3600, // 1 hour
+            parseEther('1'),
+        )
+        const looteryETHAdapter = await new LooteryETHAdapter__factory(deployer).deploy(weth9)
+
+        await expect(looteryETHAdapter.connect(bob).seedJackpot(lotto, { value: parseEther('10') }))
+            .to.emit(looteryETHAdapter, 'JackpotSeeded')
+            .withArgs(bob.address, parseEther('10'))
     })
 })
