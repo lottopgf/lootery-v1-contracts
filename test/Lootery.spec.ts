@@ -555,7 +555,6 @@ describe('Lootery', () => {
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
-            await setBalance(await lotto.getAddress(), parseEther('1')) // Needs operational funds to refund gas
         })
 
         it('should revert if called in any state other than Purchase', async () => {
@@ -583,11 +582,33 @@ describe('Lootery', () => {
             await expect(lotto.draw()).to.emit(lotto, 'DrawSkipped').withArgs(0)
         })
 
-        it('should request randomness if there are tickets sold in current game', async () => {
+        it('should request randomness if there are tickets sold in current game and there is ETH balance in contract', async () => {
             await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
 
-            await expect(lotto.draw()).to.emit(lotto, 'RandomnessRequested')
+            // Give contract some ETH balance
+            await setBalance(await lotto.getAddress(), parseEther('1'))
+            const drawTx = lotto.draw()
+            await expect(drawTx).to.emit(lotto, 'RandomnessRequested')
+            await expect(drawTx).to.not.emit(lotto, 'ExcessRefunded')
+            await expect((await lotto.currentGame()).state).to.eq(GameState.DrawPending)
+        })
+
+        it('should request randomness if there are tickets sold in current game and ETH is sent with tx', async () => {
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await time.increase(3600n)
+
+            const requestPrice = await mockRandomiser.getRequestPrice(
+                500_000 /** TODO: This will be configurable */,
+            )
+            const payment = parseEther('1') // ought to be enough for any request
+            const drawTx = lotto.draw({
+                value: payment,
+            })
+            await expect(drawTx).to.emit(lotto, 'RandomnessRequested')
+            await expect(drawTx)
+                .to.emit(lotto, 'ExcessRefunded')
+                .withArgs(deployer.address, payment - requestPrice)
             await expect((await lotto.currentGame()).state).to.eq(GameState.DrawPending)
         })
 
@@ -608,7 +629,11 @@ describe('Lootery', () => {
             await time.increase(3600n)
             await mockRandomiser.setNextRequestId(2n ** 208n)
 
-            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'RequestIdOverflow')
+            await expect(
+                lotto.draw({
+                    value: parseEther('1'),
+                }),
+            ).to.be.revertedWithCustomError(lotto, 'RequestIdOverflow')
         })
     })
 
