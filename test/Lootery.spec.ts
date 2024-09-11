@@ -1110,9 +1110,10 @@ describe('Lootery', () => {
         })
     })
 
-    describe('#rescueTokens', () => {
+    describe.only('#rescueTokens', () => {
+        let fastForwardAndDraw: (randomness: bigint) => Promise<bigint[]>
         beforeEach(async () => {
-            ;({ lotto } = await deployLotto({
+            ;({ lotto, mockRandomiser, fastForwardAndDraw } = await deployLotto({
                 deployer,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
@@ -1161,6 +1162,27 @@ describe('Lootery', () => {
                     expect(await testERC20.balanceOf(deployer.address)).to.eq(balance + excess)
                 })
             }
+
+            it('should rescue all prize tokens if in Dead state and no tickets sold', async () => {
+                const commFees = parseEther('1')
+                const unclaimedPayouts = parseEther('2')
+                const jackpot = parseEther('3')
+                const locked = commFees + unclaimedPayouts + jackpot
+                const excess = parseEther('1')
+                await lotto.setAccruedCommunityFees(commFees)
+                await lotto.setUnclaimedPayouts(unclaimedPayouts)
+                await lotto.setJackpot(jackpot)
+                await testERC20.mint(await lotto.getAddress(), locked + excess)
+                await lotto.kill()
+                await time.increase(await lotto.gamePeriod())
+                await lotto.draw()
+
+                await lotto.rescueTokens(await lotto.prizeToken())
+                expect(await testERC20.balanceOf(await lotto.getAddress())).to.eq(0)
+                expect(await lotto.accruedCommunityFees()).to.eq(0)
+                expect(await lotto.unclaimedPayouts()).to.eq(0)
+                expect(await lotto.jackpot()).to.eq(0)
+            })
         })
     })
 
