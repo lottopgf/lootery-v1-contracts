@@ -145,6 +145,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error InsufficientJackpotSeed(uint256 value);
     error UnknownBeneficiary(address beneficiary);
     error EmptyDisplayName();
+    error NoTicketsSpecified();
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

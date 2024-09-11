@@ -324,6 +324,11 @@
   },
   {
     "inputs": [],
+    "name": "NoTicketsSpecified",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NotInitializing",
     "type": "error"
   },

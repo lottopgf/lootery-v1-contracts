@@ -308,6 +308,10 @@ contract Lootery is
     /// @notice Purchase a ticket
     /// @param tickets Tickets! Tickets!
     function purchase(Ticket[] calldata tickets, address beneficiary) external {
+        if (tickets.length == 0) {
+            revert NoTicketsSpecified();
+        }
+
         uint256 ticketsCount = tickets.length;
         uint256 totalPrice = ticketPrice * ticketsCount;
 
@@ -608,15 +612,30 @@ contract Lootery is
     /// @param tokenAddress Address of token to withdraw
     function rescueTokens(address tokenAddress) external onlyOwner {
         uint256 amount = IERC20(tokenAddress).balanceOf(address(this));
+        uint256 gameId = currentGame.id;
         if (tokenAddress == prizeToken) {
-            // TODO: This no longer works if we don't limit claiming jackpot
-            // to last game only
-            // 1. Limit claiming jackpot to last game only and rollover
-            //  jackpot from 2 games ago if unclaimed (during finalisation)
-            // 2. Count total locked as jackpot (+20k gas every ticket)
-            uint256 locked = accruedCommunityFees + unclaimedPayouts + jackpot;
-            assert(amount >= locked);
-            amount -= locked;
+            if (
+                gameId > 0 &&
+                gameData[currentGame.id - 1].ticketsSold == 0 &&
+                currentGame.state == GameState.Dead
+            ) {
+                // Dead & no tickets sold -> allow rescue of everything
+                // amount = amount;
+                accruedCommunityFees = 0;
+                unclaimedPayouts = 0;
+                jackpot = 0;
+            } else {
+                // TODO: This no longer works if we don't limit claiming jackpot
+                // to last game only
+                // 1. Limit claiming jackpot to last game only and rollover
+                //  jackpot from 2 games ago if unclaimed (during finalisation)
+                // 2. Count total locked as jackpot (+20k gas every ticket)
+                uint256 locked = accruedCommunityFees +
+                    unclaimedPayouts +
+                    jackpot;
+                assert(amount >= locked);
+                amount -= locked;
+            }
         }
 
         IERC20(tokenAddress).safeTransfer(msg.sender, amount);

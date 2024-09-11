@@ -90,7 +90,7 @@ contract EchidnaLootery {
     }
 
     function purchase(uint256 numTickets, uint256 seed) external {
-        numTickets = 1 + (numTickets % 19); // [1, 20] tickets
+        numTickets = numTickets % 20; // max 20 tix
         lastTicketSeed = seed;
 
         ///////////////////////////////////////////////////////////////////////
@@ -233,6 +233,7 @@ contract EchidnaLootery {
     }
 
     function claimWinnings(uint256 tokenId) external {
+        tokenId = 1 + (tokenId % lootery.totalSupply());
         (ILootery.GameState state, uint256 currGameId) = lootery.currentGame();
         require(currGameId > 0, "No games played yet");
 
@@ -301,7 +302,28 @@ contract EchidnaLootery {
     }
 
     function rescuePrizeTokens() external {
+        ///////////////////////////////////////////////////////////////////////
+        /// Initial state /////////////////////////////////////////////////////
+        uint256 balance0 = prizeToken.balanceOf(address(lootery));
+
         lootery.rescueTokens(address(prizeToken));
+
+        ///////////////////////////////////////////////////////////////////////
+        /// Postconditions ////////////////////////////////////////////////////
+        (ILootery.GameState state, uint256 gameId) = lootery.currentGame();
+        require(gameId > 0, "No games played yet");
+        (uint64 ticketsSold, , ) = lootery.gameData(gameId - 1);
+        bool isDeadWithNoTickets = state == ILootery.GameState.Dead &&
+            ticketsSold == 0;
+        uint256 balance1 = prizeToken.balanceOf(address(lootery));
+        uint256 locked = lootery.accruedCommunityFees() +
+            lootery.unclaimedPayouts() +
+            lootery.jackpot();
+        if (isDeadWithNoTickets) {
+            assertWithMsg(balance1 == 0, "stuck funds");
+        } else {
+            assertWithMsg(balance1 == locked, "unbacked");
+        }
     }
 
     function sendAccidentalPrizeTokens(uint256 amount) external {
@@ -311,6 +333,26 @@ contract EchidnaLootery {
     ///////////////////////////////////////////////////////////////////////////
     /// PROPERTIES ////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
+
+    uint256 internal lastGameId;
+
+    function test_gameIdIncreases() external {
+        (, uint256 gameId) = lootery.currentGame();
+        assert(gameId >= lastGameId);
+        lastGameId = gameId;
+    }
+
+    function test_numWinnersLteTicketsSold() external {
+        (, uint256 gameId) = lootery.currentGame();
+        require(gameId > 0, "No games played yet");
+        (uint64 ticketsSold, , uint256 winningPickId) = lootery.gameData(
+            gameId - 1
+        );
+        assertWithMsg(
+            lootery.numWinnersInGame(gameId - 1, winningPickId) <= ticketsSold,
+            "numWinners > ticketsSold"
+        );
+    }
 
     function test_alwaysBacked() external view {
         assert(
