@@ -38,6 +38,12 @@ interface IHevm {
     // Performs the next smart contract call with specified `msg.sender`
     function prank(address newSender) external;
 
+    // Performs calls after this with specified `msg.sender`
+    // function startPrank(address newSender) external;
+
+    // Resets the `msg.sender` to the original sender
+    // function stopPrank() external;
+
     // Creates a new fork with the given endpoint and the latest block and returns the identifier of the fork
     function createFork(string calldata urlOrAlias) external returns (uint256);
 

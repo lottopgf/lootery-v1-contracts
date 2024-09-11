@@ -449,7 +449,6 @@ contract Lootery is
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
-        uint256 total0 = currentUnclaimedPayouts + currentJackpot;
         if (numWinners == 0) {
             if (nextState == GameState.Dead) {
                 // No winners, but apocalypse mode
@@ -495,9 +494,17 @@ contract Lootery is
                 0
             );
         }
+    }
 
-        // Invariant: the total of jackpots + unclaimed payouts is conserved
-        assert(jackpot + unclaimedPayouts == total0);
+    /// @notice Get the number of winners in a game
+    /// @param gameId Game id
+    /// @param pickId Pick id
+    /// @return Number of winners
+    function numWinnersInGame(
+        uint256 gameId,
+        uint256 pickId
+    ) public view returns (uint256) {
+        return tokenByPickIdentity[gameId][pickId].length;
     }
 
     /// @notice Claim a share of the jackpot with a winning ticket.
@@ -532,8 +539,7 @@ contract Lootery is
         // Determine if the jackpot was won
         Game memory game = gameData[ticket.gameId];
         uint256 winningPickId = game.winningPickId;
-        uint256 numWinners = tokenByPickIdentity[ticket.gameId][winningPickId]
-            .length;
+        uint256 numWinners = numWinnersInGame(ticket.gameId, winningPickId);
         uint256 numClaimedWinningTickets = claimedWinningTickets[ticket.gameId]
             .length;
 
