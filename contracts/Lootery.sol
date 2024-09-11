@@ -308,6 +308,10 @@ contract Lootery is
     /// @notice Purchase a ticket
     /// @param tickets Tickets! Tickets!
     function purchase(Ticket[] calldata tickets, address beneficiary) external {
+        if (tickets.length == 0) {
+            revert NoTicketsSpecified();
+        }
+
         uint256 ticketsCount = tickets.length;
         uint256 totalPrice = ticketPrice * ticketsCount;
 
@@ -449,7 +453,6 @@ contract Lootery is
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
-        uint256 total0 = currentUnclaimedPayouts + currentJackpot;
         if (numWinners == 0) {
             if (nextState == GameState.Dead) {
                 // No winners, but apocalypse mode
@@ -495,14 +498,24 @@ contract Lootery is
                 0
             );
         }
+    }
 
-        // Invariant: the total of jackpots + unclaimed payouts is conserved
-        assert(jackpot + unclaimedPayouts == total0);
+    /// @notice Get the number of winners in a game
+    /// @param gameId Game id
+    /// @param pickId Pick id
+    /// @return Number of winners
+    function numWinnersInGame(
+        uint256 gameId,
+        uint256 pickId
+    ) public view returns (uint256) {
+        return tokenByPickIdentity[gameId][pickId].length;
     }
 
     /// @notice Claim a share of the jackpot with a winning ticket.
     /// @param tokenId Token id of the ticket (will be burnt)
-    function claimWinnings(uint256 tokenId) external {
+    function claimWinnings(
+        uint256 tokenId
+    ) external returns (uint256 prizeShare) {
         // Only allow claims during Purchase state so we don't have to deal
         // with intermediate states between gameIds.
         // Dead state is also ok since the entire game has ended forever.
@@ -530,8 +543,7 @@ contract Lootery is
         // Determine if the jackpot was won
         Game memory game = gameData[ticket.gameId];
         uint256 winningPickId = game.winningPickId;
-        uint256 numWinners = tokenByPickIdentity[ticket.gameId][winningPickId]
-            .length;
+        uint256 numWinners = numWinnersInGame(ticket.gameId, winningPickId);
         uint256 numClaimedWinningTickets = claimedWinningTickets[ticket.gameId]
             .length;
 
@@ -539,13 +551,20 @@ contract Lootery is
             // No jackpot winners, and game is no longer active!
             // Jackpot is shared between all tickets
             // Invariant: `ticketsSold[gameId] > 0`
-            uint256 prizeShare = unclaimedPayouts / game.ticketsSold;
+            prizeShare =
+                unclaimedPayouts /
+                (game.ticketsSold - numClaimedWinningTickets);
+            // Decrease unclaimed payouts by the amount just claimed
+            unclaimedPayouts -= prizeShare;
+            // Record that this ticket has claimed its winnings
+            claimedWinningTickets[ticket.gameId].push(tokenId);
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
             emit ConsolationClaimed(tokenId, ticket.gameId, whomst, prizeShare);
         } else if (winningPickId == ticket.pickId) {
             assert(numWinners > 0);
             // This ticket did have the winning numbers
-            uint256 prizeShare = unclaimedPayouts /
+            prizeShare =
+                unclaimedPayouts /
                 (numWinners - numClaimedWinningTickets);
             // Decrease unclaimed payouts by the amount just claimed
             unclaimedPayouts -= prizeShare;
@@ -593,15 +612,30 @@ contract Lootery is
     /// @param tokenAddress Address of token to withdraw
     function rescueTokens(address tokenAddress) external onlyOwner {
         uint256 amount = IERC20(tokenAddress).balanceOf(address(this));
+        uint256 gameId = currentGame.id;
         if (tokenAddress == prizeToken) {
-            // TODO: This no longer works if we don't limit claiming jackpot
-            // to last game only
-            // 1. Limit claiming jackpot to last game only and rollover
-            //  jackpot from 2 games ago if unclaimed (during finalisation)
-            // 2. Count total locked as jackpot (+20k gas every ticket)
-            uint256 locked = accruedCommunityFees + unclaimedPayouts + jackpot;
-            assert(amount >= locked);
-            amount -= locked;
+            if (
+                gameId > 0 &&
+                gameData[currentGame.id - 1].ticketsSold == 0 &&
+                currentGame.state == GameState.Dead
+            ) {
+                // Dead & no tickets sold -> allow rescue of everything
+                // amount = amount;
+                accruedCommunityFees = 0;
+                unclaimedPayouts = 0;
+                jackpot = 0;
+            } else {
+                // TODO: This no longer works if we don't limit claiming jackpot
+                // to last game only
+                // 1. Limit claiming jackpot to last game only and rollover
+                //  jackpot from 2 games ago if unclaimed (during finalisation)
+                // 2. Count total locked as jackpot (+20k gas every ticket)
+                uint256 locked = accruedCommunityFees +
+                    unclaimedPayouts +
+                    jackpot;
+                assert(amount >= locked);
+                amount -= locked;
+            }
         }
 
         IERC20(tokenAddress).safeTransfer(msg.sender, amount);

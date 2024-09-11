@@ -2,9 +2,6 @@ import { ethers } from 'hardhat'
 import * as hre from 'hardhat'
 import { time, setBalance, impersonateAccount } from '@nomicfoundation/hardhat-network-helpers'
 import {
-    LooteryFactory,
-    LooteryFactory__factory,
-    Lootery__factory,
     MockRandomiser,
     MockRandomiser__factory,
     MockERC20__factory,
@@ -19,11 +16,18 @@ import {
     MockERC721__factory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { ZeroAddress, parseEther } from 'ethers'
+import { EventLog, ZeroAddress, parseEther } from 'ethers'
 import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 import { GameState } from './helpers/GameState'
-import { computePick, computePickId, deployLotto, shuffle } from './helpers/lotto'
+import {
+    computePick,
+    computePickId,
+    deployLotto,
+    getLottoEvent,
+    shuffle,
+    slikpik,
+} from './helpers/lotto'
 import { getRandomValues } from 'node:crypto'
 
 const isCoverage = Boolean((hre as any).__SOLIDITY_COVERAGE_RUNNING)
@@ -859,33 +863,74 @@ describe('Lootery', () => {
                 .withArgs(tokenId)
         })
 
-        it('should payout a share of the pot if there are no winners in Dead state', async () => {
-            const jackpot = await lotto.jackpot()
-            expect(jackpot).to.eq(parseEther('10')) // `deployLotto` sets initial jackpot to 10 ETH
-            const tickets = [
-                { whomst: deployer.address, picks: [1, 2, 3, 4, 5] },
-                { whomst: bob.address, picks: [2, 3, 4, 5, 6] },
-                { whomst: alice.address, picks: [3, 4, 5, 6, 7] },
-            ]
-            const pickTx = lotto.pickTickets(tickets)
-            for (let i = 0; i < tickets.length; i++) {
-                await expect(pickTx)
-                    .to.emit(lotto, 'Transfer')
-                    .withArgs(ethers.ZeroAddress, tickets[i].whomst, i + 1)
-            }
-            await lotto.kill() // trigger apocalypse mode
-            await fastForwardAndDraw(69420n)
+        describe('consolation payouts', () => {
+            for (let r = 0; r < runs; r++) {
+                it(`should payout a share of the pot if there are no winners in Dead state (${
+                    r + 1
+                }/${runs})`, async () => {
+                    ;({ lotto, fastForwardAndDraw, prizeToken } = await deployLotto({
+                        deployer,
+                        gamePeriod: 3600n,
+                        prizeToken: testERC20,
+                        shouldSkipSeedJackpot: true,
+                    }))
+                    const numPicks = await lotto.numPicks()
+                    const maxBallValue = await lotto.maxBallValue()
+                    const jackpot = (await lotto.seedJackpotMinValue()) + randomBigInt(8)
+                    await testERC20.mint(deployer.address, jackpot)
+                    await testERC20.approve(await lotto.getAddress(), jackpot)
+                    await lotto.seedJackpot(jackpot)
+                    const tickets = Array.from(
+                        { length: Math.floor(Math.random() * 19) + 1 },
+                        () => ({
+                            whomst: ethers.Wallet.createRandom().address,
+                            picks: slikpik(numPicks, maxBallValue),
+                        }),
+                    )
+                    const pickTx = lotto.pickTickets(tickets)
+                    for (let i = 0; i < tickets.length; i++) {
+                        await expect(pickTx)
+                            .to.emit(lotto, 'Transfer')
+                            .withArgs(ethers.ZeroAddress, tickets[i].whomst, i + 1)
+                    }
+                    await lotto.kill() // trigger apocalypse mode
+                    await fastForwardAndDraw(69420n)
 
-            // Claim each consolation prize for each ticket
-            for (let i = 0; i < tickets.length; i++) {
-                const balanceBefore = await prizeToken.balanceOf(tickets[i].whomst)
-                const jackpotShare = jackpot / BigInt(tickets.length)
-                await expect(lotto.claimWinnings(i + 1))
-                    .to.emit(lotto, 'ConsolationClaimed')
-                    .withArgs(i + 1, 0, tickets[i].whomst, jackpotShare)
-                expect(await prizeToken.balanceOf(tickets[i].whomst)).to.eq(
-                    balanceBefore + jackpotShare,
-                )
+                    // Claim each consolation prize for each ticket
+                    for (let i = 0; i < tickets.length; i++) {
+                        const balanceBefore = await prizeToken.balanceOf(tickets[i].whomst)
+                        // This is the *minimum* jackpot share for each ticket, i.e. it's the
+                        // rounded-down share.
+                        const minJackpotShare = jackpot / BigInt(tickets.length)
+                        const claimTx = lotto.claimWinnings(i + 1)
+                        await expect(claimTx).to.emit(lotto, 'ConsolationClaimed')
+                        const logs = await claimTx
+                            .then((tx) => tx.wait())
+                            .then((receipt) => receipt?.logs)
+                        const event = logs
+                            ?.map((log) => {
+                                try {
+                                    return LooteryHarness__factory.createInterface().parseLog(log)
+                                } catch (err) {
+                                    return null
+                                }
+                            })
+                            .find((log) => log?.name === 'ConsolationClaimed')
+                        const [tokenId, gameId, whomst, value] = event!.args as unknown as [
+                            bigint,
+                            bigint,
+                            `0x${string}`,
+                            bigint,
+                        ]
+                        expect(tokenId).to.eq(i + 1)
+                        expect(gameId).to.eq(0)
+                        expect(whomst).to.eq(tickets[i].whomst)
+                        expect(value).to.be.gte(minJackpotShare)
+                        expect(await prizeToken.balanceOf(tickets[i].whomst)).to.be.gte(
+                            balanceBefore + minJackpotShare,
+                        )
+                    }
+                })
             }
         })
 

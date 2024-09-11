@@ -154,6 +154,22 @@ contract LooteryFactory is UUPSUpgradeable, AccessControlUpgradeable {
         uint256 seedJackpotDelay,
         uint256 seedJackpotMinValue
     ) external returns (address) {
+        ILootery.InitConfig memory config = ILootery.InitConfig({
+            owner: msg.sender,
+            name: name,
+            symbol: symbol,
+            numPicks: numPicks,
+            maxBallValue: maxBallValue,
+            gamePeriod: gamePeriod,
+            ticketPrice: ticketPrice,
+            communityFeeBps: communityFeeBps,
+            randomiser: RANDOMISER_SLOT.getAddressSlot().value,
+            prizeToken: prizeToken,
+            seedJackpotDelay: seedJackpotDelay,
+            seedJackpotMinValue: seedJackpotMinValue,
+            ticketSVGRenderer: TICKET_SVG_RENDERER_SLOT.getAddressSlot().value
+        });
+
         uint256 nonce = NONCE_SLOT.getUint256Slot().value++;
         bytes32 salt = computeSalt(nonce);
         address looteryMasterCopy = LOOTERY_MASTER_COPY_SLOT
@@ -163,26 +179,13 @@ contract LooteryFactory is UUPSUpgradeable, AccessControlUpgradeable {
         address payable looteryProxy = payable(
             Clones.cloneDeterministic(looteryMasterCopy, salt)
         );
-        ILootery(looteryProxy).init(
-            ILootery.InitConfig({
-                owner: msg.sender,
-                name: name,
-                symbol: symbol,
-                numPicks: numPicks,
-                maxBallValue: maxBallValue,
-                gamePeriod: gamePeriod,
-                ticketPrice: ticketPrice,
-                communityFeeBps: communityFeeBps,
-                randomiser: RANDOMISER_SLOT.getAddressSlot().value,
-                prizeToken: prizeToken,
-                seedJackpotDelay: seedJackpotDelay,
-                seedJackpotMinValue: seedJackpotMinValue,
-                ticketSVGRenderer: TICKET_SVG_RENDERER_SLOT
-                    .getAddressSlot()
-                    .value
-            })
+        ILootery(looteryProxy).init(config);
+        emit LooteryLaunched(
+            looteryProxy,
+            looteryMasterCopy,
+            msg.sender,
+            config.name
         );
-        emit LooteryLaunched(looteryProxy, looteryMasterCopy, msg.sender, name);
         return looteryProxy;
     }
 }
