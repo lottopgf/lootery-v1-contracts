@@ -85,6 +85,7 @@ contract EchidnaLootery {
     }
 
     function seedJackpot(uint256 value) public {
+        hevm.prank(msg.sender);
         lootery.seedJackpot(value);
     }
 
