@@ -119,6 +119,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     event OperationalFundsWithdrawn(address indexed to, uint256 amount);
     event BeneficiaryAdded(address indexed beneficiary, string displayName);
     event BeneficiaryRemoved(address indexed beneficiary);
+    event ExcessRefunded(address indexed to, uint256 value);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidNumPicks(uint256 numPicks);

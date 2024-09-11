@@ -345,7 +345,7 @@ contract Lootery is
 
     /// @notice Draw numbers, picking potential jackpot winners and ending the
     ///     current game. This should be automated by a keeper.
-    function draw() external onlyInState(GameState.Purchase) {
+    function draw() external payable onlyInState(GameState.Purchase) {
         Game memory game = gameData[currentGame.id];
         // Assert that the game is actually over
         uint256 gameDeadline = (game.startedAt + gamePeriod);
@@ -368,6 +368,17 @@ contract Lootery is
             uint256 requestPrice = IAnyrand(randomiser).getRequestPrice(
                 500_000 /** TODO: Really need to make this configurable */
             );
+            if (msg.value > requestPrice) {
+                // Refund excess to caller, if any
+                uint256 excess = msg.value - requestPrice;
+                (bool success, bytes memory data) = msg.sender.call{
+                    value: excess
+                }("");
+                if (!success) {
+                    revert TransferFailure(msg.sender, excess, data);
+                }
+                emit ExcessRefunded(msg.sender, excess);
+            }
             if (address(this).balance < requestPrice) {
                 revert InsufficientOperationalFunds(
                     address(this).balance,
