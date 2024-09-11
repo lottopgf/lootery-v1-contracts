@@ -303,21 +303,37 @@ contract EchidnaLootery {
     }
 
     function rescuePrizeTokens() external {
+        ///////////////////////////////////////////////////////////////////////
+        /// Initial state /////////////////////////////////////////////////////
+        uint256 locked = lootery.accruedCommunityFees() +
+            lootery.unclaimedPayouts() +
+            lootery.jackpot();
+        ///////////////////////////////////////////////////////////////////////
+
         lootery.rescueTokens(address(prizeToken));
 
         ///////////////////////////////////////////////////////////////////////
         /// Postconditions ////////////////////////////////////////////////////
         (ILootery.GameState state, uint256 gameId) = lootery.currentGame();
         require(gameId > 0, "No games played yet");
+
+        // The following checks are to ensure that we never have funds that are
+        // stuck in the contract, even in the rare case that the game is dead
+        // with no tickets sold.
         (uint64 ticketsSold, , ) = lootery.gameData(gameId - 1);
         bool isDeadWithNoTickets = state == ILootery.GameState.Dead &&
             ticketsSold == 0;
         uint256 balance1 = prizeToken.balanceOf(address(lootery));
-        uint256 locked = lootery.accruedCommunityFees() +
-            lootery.unclaimedPayouts() +
-            lootery.jackpot();
         if (isDeadWithNoTickets) {
+            // If the game is dead, then we should have been able to rescue
+            // the entire balance of prize tokens.
             assertWithMsg(balance1 == 0, "stuck funds");
+            assertWithMsg(
+                lootery.accruedCommunityFees() == 0 &&
+                    lootery.unclaimedPayouts() == 0 &&
+                    lootery.jackpot() == 0,
+                "all accrued fee values should be 0"
+            );
         } else {
             assertWithMsg(balance1 == locked, "unbacked");
         }
