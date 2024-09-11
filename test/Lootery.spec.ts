@@ -1110,7 +1110,7 @@ describe('Lootery', () => {
         })
     })
 
-    describe.only('#rescueTokens', () => {
+    describe('#rescueTokens', () => {
         let fastForwardAndDraw: (randomness: bigint) => Promise<bigint[]>
         beforeEach(async () => {
             ;({ lotto, mockRandomiser, fastForwardAndDraw } = await deployLotto({
