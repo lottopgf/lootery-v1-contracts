@@ -21,6 +21,7 @@ contract EchidnaLootery {
     MockERC20 internal prizeToken = new MockERC20(address(this));
     TicketSVGRenderer internal ticketSVGRenderer = new TicketSVGRenderer();
     uint256 internal lastTicketSeed;
+    uint256 internal lastGameId;
 
     mapping(uint256 gameId => uint256 unclaimedPayouts)
         internal recUnclaimedPayouts;
@@ -302,10 +303,6 @@ contract EchidnaLootery {
     }
 
     function rescuePrizeTokens() external {
-        ///////////////////////////////////////////////////////////////////////
-        /// Initial state /////////////////////////////////////////////////////
-        uint256 balance0 = prizeToken.balanceOf(address(lootery));
-
         lootery.rescueTokens(address(prizeToken));
 
         ///////////////////////////////////////////////////////////////////////
@@ -333,8 +330,6 @@ contract EchidnaLootery {
     ///////////////////////////////////////////////////////////////////////////
     /// PROPERTIES ////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
-
-    uint256 internal lastGameId;
 
     function test_gameIdIncreases() external {
         (, uint256 gameId) = lootery.currentGame();
