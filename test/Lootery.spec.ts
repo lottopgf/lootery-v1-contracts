@@ -465,6 +465,13 @@ describe('Lootery', () => {
             }))
         })
 
+        it('should revert if no tickets were specified', async () => {
+            await expect(lotto.purchase([], beneficiary.address)).to.be.revertedWithCustomError(
+                lotto,
+                'NoTicketsSpecified',
+            )
+        })
+
         it('should take tokens for payment and mint tickets (no beneficiary)', async () => {
             const ticketPrice = await lotto.ticketPrice()
             await testERC20.mint(deployer.address, ticketPrice * 100n)
