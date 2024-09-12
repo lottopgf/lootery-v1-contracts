@@ -601,7 +601,25 @@ describe('Lootery', () => {
             await expect((await lotto.currentGame()).state).to.eq(GameState.DrawPending)
         })
 
-        it('should request randomness if there are tickets sold in current game and ETH is sent with tx', async () => {
+        it('should revert if excess ETH cannot be refunded to caller', async () => {
+            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await time.increase(3600n)
+
+            const _revertingReceiver = await new RevertingETHReceiver__factory(deployer).deploy()
+            await impersonateAccount(await _revertingReceiver.getAddress())
+            // This is now the owner, and will always revert upon receiving ETH
+            const revertingReceiver = await ethers.getSigner(await _revertingReceiver.getAddress())
+            await setBalance(revertingReceiver.address, parseEther('10'))
+
+            const payment = parseEther('1') // ought to be enough for any request
+            const drawTx = lotto.connect(revertingReceiver).draw({
+                value: payment,
+            })
+            await expect(drawTx).to.be.revertedWithCustomError(lotto, 'TransferFailure')
+            await expect((await lotto.currentGame()).state).to.eq(GameState.Purchase)
+        })
+
+        it('should revert if contract cannot refund excess ETH', async () => {
             await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
 
