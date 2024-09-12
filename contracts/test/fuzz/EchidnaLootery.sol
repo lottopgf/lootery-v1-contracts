@@ -22,6 +22,7 @@ contract EchidnaLootery {
     TicketSVGRenderer internal ticketSVGRenderer = new TicketSVGRenderer();
     uint256 internal lastTicketSeed;
     uint256 internal lastGameId;
+    address public feeRecipient;
 
     mapping(uint256 gameId => uint256 unclaimedPayouts)
         internal recUnclaimedPayouts;
@@ -77,6 +78,16 @@ contract EchidnaLootery {
             address(lootery),
             type(uint256).max
         );
+    }
+
+    function setFeeRecipient(address feeRecipient_) external {
+        feeRecipient = feeRecipient_;
+    }
+
+    /// @notice This contract acts as the "factory" for the purpose of
+    ///     determining the fee recipient.
+    function getFeeRecipient() external view returns (address) {
+        return feeRecipient;
     }
 
     function assertWithMsg(bool condition, string memory reason) internal {

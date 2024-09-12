@@ -5,12 +5,17 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {StorageSlot} from "@openzeppelin/contracts/utils/StorageSlot.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 import {ILootery} from "./interfaces/ILootery.sol";
 
 /// @title LooteryFactory
-/// @custom:version 1.1.0
-/// @notice Launch your own lottos to fund your Troop!
-contract LooteryFactory is UUPSUpgradeable, AccessControlUpgradeable {
+/// @custom:version 1.3.0
+/// @notice Launch a lotto to support your charity or public good.
+contract LooteryFactory is
+    ILooteryFactory,
+    UUPSUpgradeable,
+    AccessControlUpgradeable
+{
     using StorageSlot for bytes32;
 
     // keccak256("troops.lootery_factory.lootery_master_copy");
@@ -25,22 +30,9 @@ contract LooteryFactory is UUPSUpgradeable, AccessControlUpgradeable {
     // keccak256("troops.lootery_factory.ticket_svg_renderer");
     bytes32 private constant TICKET_SVG_RENDERER_SLOT =
         0xd1c597752146589dde9c96027a1c6cda673d6fe5b448036a3b51eb9c108a913c;
-
-    event LooteryLaunched(
-        address indexed looteryProxy,
-        address indexed looteryImplementation,
-        address indexed deployer,
-        string name
-    );
-    event LooteryMasterCopyUpdated(
-        address oldLooteryMasterCopy,
-        address newLooteryMasterCopy
-    );
-    event RandomiserUpdated(address oldRandomiser, address newRandomiser);
-    event TicketSVGRendererUpdated(
-        address oldTicketSVGRenderer,
-        address newTicketSVGRenderer
-    );
+    // keccak256("troops.lootery_factory.fee_recipient");
+    bytes32 private constant FEE_RECIPIENT_SLOT =
+        0x42ca05c9d33288b41ba8de79367abafbc42de97cbc0b0b65f9ad198e935fb6b7;
 
     constructor() {
         _disableInitializers();
@@ -107,6 +99,16 @@ contract LooteryFactory is UUPSUpgradeable, AccessControlUpgradeable {
 
     function getTicketSVGRenderer() external view returns (address) {
         return TICKET_SVG_RENDERER_SLOT.getAddressSlot().value;
+    }
+
+    function setFeeRecipient(
+        address feeRecipient
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        FEE_RECIPIENT_SLOT.getAddressSlot().value = feeRecipient;
+    }
+
+    function getFeeRecipient() external view returns (address) {
+        return FEE_RECIPIENT_SLOT.getAddressSlot().value;
     }
 
     /// @notice Compute salt used in computing deployment addresses

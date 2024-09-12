@@ -120,11 +120,13 @@ interface ILootery is IRandomiserCallback, IERC721 {
     event BeneficiaryAdded(address indexed beneficiary, string displayName);
     event BeneficiaryRemoved(address indexed beneficiary);
     event ExcessRefunded(address indexed to, uint256 value);
+    event ProtocolFeePaid(address indexed to, uint256 value);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidNumPicks(uint256 numPicks);
     error InvalidGamePeriod(uint256 gamePeriod);
     error InvalidTicketPrice(uint256 ticketPrice);
+    error InvalidFeeShares();
     error InvalidRandomiser(address randomiser);
     error InvalidPrizeToken(address prizeToken);
     error InvalidSeedJackpotConfig(uint256 delay, uint256 minValue);

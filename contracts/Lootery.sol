@@ -14,9 +14,10 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IRandomiserCallback} from "./interfaces/IRandomiserCallback.sol";
 import {IAnyrand} from "./interfaces/IAnyrand.sol";
 import {ITicketSVGRenderer} from "./interfaces/ITicketSVGRenderer.sol";
+import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 
 /// @title Lootery
-/// @custom:version 1.3.0
+/// @custom:version 1.4.0
 /// @notice Lootery is a number lottery contract where players can pick a
 ///     configurable set of numbers/balls per ticket, similar to IRL lottos
 ///     such as Powerball or EuroMillions. At the end of every round, a keeper
@@ -51,6 +52,11 @@ contract Lootery is
     using Strings for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    /// @notice The protocol fee, taken from purchase fee, if switched on
+    uint256 public constant PROTOCOL_FEE_BPS = 500;
+
+    /// @notice The factory that gave birth to this lootery contract
+    address public factory;
     /// @notice How many numbers must be picked per draw (and per ticket)
     ///     The range of this number should be something like 3-7
     uint8 public numPicks;
@@ -128,6 +134,8 @@ contract Lootery is
         __Ownable_init(initConfig.owner);
         __ERC721_init(initConfig.name, initConfig.symbol);
 
+        factory = msg.sender;
+
         if (initConfig.numPicks == 0) {
             revert InvalidNumPicks(initConfig.numPicks);
         }
@@ -143,6 +151,12 @@ contract Lootery is
             revert InvalidTicketPrice(initConfig.ticketPrice);
         }
         ticketPrice = initConfig.ticketPrice;
+
+        // Community fee + protocol fee should not overflow 100%
+        // 0% jackpot fee share is allowed
+        if (initConfig.communityFeeBps + PROTOCOL_FEE_BPS > 1e4) {
+            revert InvalidFeeShares();
+        }
         communityFeeBps = initConfig.communityFeeBps;
 
         if (initConfig.randomiser == address(0)) {
@@ -307,6 +321,7 @@ contract Lootery is
 
     /// @notice Purchase a ticket
     /// @param tickets Tickets! Tickets!
+    /// @param beneficiary Beneficiary address to receive community fee share
     function purchase(Ticket[] calldata tickets, address beneficiary) external {
         if (tickets.length == 0) {
             revert NoTicketsSpecified();
@@ -322,9 +337,18 @@ contract Lootery is
         );
 
         // Handle fee splits
-        uint256 communityFeeShare = (totalPrice * communityFeeBps) / 10000;
-        uint256 jackpotShare = totalPrice - communityFeeShare;
+        uint256 communityFeeShare = (totalPrice * communityFeeBps) / 1e4;
+        address protocolFeeRecipient = ILooteryFactory(factory)
+            .getFeeRecipient();
+        uint256 protocolFeeShare = protocolFeeRecipient == address(0)
+            ? 0
+            : (totalPrice * PROTOCOL_FEE_BPS) / 1e4;
+        uint256 jackpotShare = totalPrice -
+            communityFeeShare -
+            protocolFeeShare;
         uint256 currentGameId = currentGame.id;
+
+        // Payout community/beneficiary fees
         if (beneficiary == address(0)) {
             accruedCommunityFees += communityFeeShare;
         } else {
@@ -339,6 +363,16 @@ contract Lootery is
             communityFeeShare
         );
 
+        // Payout protocol fees
+        if (protocolFeeRecipient != address(0) && protocolFeeShare > 0) {
+            IERC20(prizeToken).safeTransfer(
+                protocolFeeRecipient,
+                protocolFeeShare
+            );
+            emit ProtocolFeePaid(protocolFeeRecipient, protocolFeeShare);
+        }
+
+        // Payout jackpot
         jackpot += jackpotShare;
         _pickTickets(tickets);
     }

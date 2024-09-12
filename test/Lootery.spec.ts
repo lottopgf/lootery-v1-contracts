@@ -14,20 +14,15 @@ import {
     ERC20,
     RevertingETHReceiver__factory,
     MockERC721__factory,
+    LooteryFactory__factory,
+    LooteryFactory,
 } from '../typechain-types'
 import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
-import { EventLog, ZeroAddress, parseEther } from 'ethers'
+import { ZeroAddress, parseEther } from 'ethers'
 import { expect } from 'chai'
 import { deployProxy } from './helpers/deployProxy'
 import { GameState } from './helpers/GameState'
-import {
-    computePick,
-    computePickId,
-    deployLotto,
-    getLottoEvent,
-    shuffle,
-    slikpik,
-} from './helpers/lotto'
+import { computePick, computePickId, deployLotto, shuffle, slikpik } from './helpers/lotto'
 import { getRandomValues } from 'node:crypto'
 
 const isCoverage = Boolean((hre as any).__SOLIDITY_COVERAGE_RUNNING)
@@ -58,11 +53,23 @@ describe('Lootery', () => {
     let ticketSVGRenderer: TicketSVGRenderer
     let validConfig: ILootery.InitConfigStruct
     let lotto: LooteryHarness
+    let factory: LooteryFactory
     beforeEach(async () => {
         ;[deployer, bob, alice, beneficiary] = await ethers.getSigners()
         mockRandomiser = await new MockRandomiser__factory(deployer).deploy()
         testERC20 = await new MockERC20__factory(deployer).deploy(deployer)
         ticketSVGRenderer = await new TicketSVGRenderer__factory(deployer).deploy()
+        factory = factory = await deployProxy({
+            deployer,
+            implementation: LooteryFactory__factory,
+            initData: LooteryFactory__factory.createInterface().encodeFunctionData('init', [
+                await new LooteryHarness__factory(deployer)
+                    .deploy()
+                    .then((contract) => contract.getAddress()),
+                await mockRandomiser.getAddress(),
+                await ticketSVGRenderer.getAddress(),
+            ]),
+        })
 
         validConfig = {
             owner: deployer.address,
@@ -85,6 +92,7 @@ describe('Lootery', () => {
         it('should receive ETH', async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -153,6 +161,22 @@ describe('Lootery', () => {
             ).to.be.revertedWithCustomError(lotto, 'InvalidTicketPrice')
         })
 
+        it('should revert if community fee + protocol fee > 100%', async () => {
+            const protocolFeeBps = await lotto.PROTOCOL_FEE_BPS()
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    communityFeeBps: 10000n - protocolFeeBps + 1n,
+                }),
+            ).to.be.revertedWithCustomError(lotto, 'InvalidFeeShares')
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    communityFeeBps: 10000n - protocolFeeBps,
+                }),
+            ).to.not.be.reverted
+        })
+
         it('should revert if randomiser is unspecified', async () => {
             await expect(
                 lotto.init({
@@ -198,6 +222,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -271,6 +296,7 @@ describe('Lootery', () => {
         it('should seed the jackpot', async () => {
             const { lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 shouldSkipSeedJackpot: true,
@@ -296,6 +322,7 @@ describe('Lootery', () => {
         it('should revert if seeding jackpot with an amount below the minimum (DoS vector)', async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 shouldSkipSeedJackpot: true,
@@ -310,6 +337,7 @@ describe('Lootery', () => {
         it('should enforce seed jackpot cooldown', async () => {
             const { lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 shouldSkipSeedJackpot: true,
@@ -338,6 +366,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -434,6 +463,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -459,6 +489,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 shouldSkipSeedJackpot: true /** make sure it's empty initially */,
@@ -553,12 +584,54 @@ describe('Lootery', () => {
                 beneficiaryBalance + communityShare,
             )
         })
+
+        it('should take tokens for payment and mint tickets, and transfer protocol fees if turned on', async () => {
+            const ticketPrice = await lotto.ticketPrice()
+            await testERC20.mint(deployer.address, ticketPrice * 100n)
+            await testERC20.approve(await lotto.getAddress(), ticketPrice * 100n)
+            // Set protocol fee recipient (turn on protocol fees)
+            await factory.setFeeRecipient(beneficiary.address)
+            const balanceBefore = await testERC20.balanceOf(beneficiary.address)
+
+            // Purchase 2 tickets
+            const tx = lotto.purchase(
+                [
+                    { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
+                    { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                ],
+                ZeroAddress,
+            )
+            await expect(tx)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, alice.address, 1n, [1, 2, 3, 4, 5])
+
+            const totalPurchasePrice = ticketPrice * 2n
+            const communityShare = (totalPurchasePrice * (await lotto.communityFeeBps())) / 10000n
+            const protocolFeeShare =
+                (totalPurchasePrice * (await lotto.PROTOCOL_FEE_BPS())) / 10000n
+            const jackpotShare = totalPurchasePrice - communityShare - protocolFeeShare
+            await expect(tx)
+                .to.emit(lotto, 'ProtocolFeePaid')
+                .withArgs(beneficiary.address, protocolFeeShare)
+            // Internal accounting
+            expect(await lotto.accruedCommunityFees()).to.eq(communityShare)
+            expect(await lotto.jackpot()).to.eq(jackpotShare)
+
+            // Actual ERC-20 balances (combined)
+            expect(await testERC20.balanceOf(await lotto.getAddress())).to.eq(
+                jackpotShare + communityShare,
+            )
+            expect(await testERC20.balanceOf(beneficiary.address)).to.eq(
+                balanceBefore + protocolFeeShare,
+            )
+        })
     })
 
     describe('#draw', () => {
         beforeEach(async () => {
             ;({ lotto, mockRandomiser } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -667,6 +740,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto, mockRandomiser } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -753,6 +827,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto, mockRandomiser } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -847,6 +922,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto, fastForwardAndDraw, prizeToken } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -920,6 +996,7 @@ describe('Lootery', () => {
                 }/${runs})`, async () => {
                     ;({ lotto, fastForwardAndDraw, prizeToken } = await deployLotto({
                         deployer,
+                        factory,
                         gamePeriod: 3600n,
                         prizeToken: testERC20,
                         shouldSkipSeedJackpot: true,
@@ -1028,6 +1105,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -1055,6 +1133,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -1091,6 +1170,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -1140,6 +1220,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto, mockRandomiser, fastForwardAndDraw } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 shouldSkipSeedJackpot: true,
@@ -1223,6 +1304,7 @@ describe('Lootery', () => {
             } while (maxBallValue < numPicks)
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 numPicks: BigInt(numPicks),
@@ -1252,6 +1334,7 @@ describe('Lootery', () => {
             } while (maxBallValue < numPicks)
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
                 numPicks: BigInt(numPicks),
@@ -1277,6 +1360,7 @@ describe('Lootery', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             }))
@@ -1334,6 +1418,7 @@ describe('Lootery', () => {
         it('should return tokenURI', async () => {
             const { lotto } = await deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             })
