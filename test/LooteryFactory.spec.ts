@@ -128,4 +128,13 @@ describe('LooteryFactory', () => {
                 'Test Lootery',
             )
     })
+
+    it('should set protocol fee recipient', async () => {
+        await expect(
+            factory.connect(bob).setFeeRecipient(bob.address),
+        ).to.be.revertedWithCustomError(factory, 'AccessControlUnauthorizedAccount')
+
+        await factory.setFeeRecipient(bob.address)
+        expect(await factory.getFeeRecipient()).to.eq(bob.address)
+    })
 })
