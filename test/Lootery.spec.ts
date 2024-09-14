@@ -75,7 +75,7 @@ describe('Lootery', () => {
             owner: deployer.address,
             name: 'Lotto',
             symbol: 'LOTTO',
-            numPicks: 5,
+            pickLength: 5,
             maxBallValue: 69,
             gamePeriod: 60n * 60n,
             ticketPrice: parseEther('0.1'),
@@ -134,11 +134,11 @@ describe('Lootery', () => {
             )
         })
 
-        it('should revert if numPicks == 0', async () => {
+        it('should revert if pickLength == 0', async () => {
             await expect(
                 lotto.init({
                     ...validConfig,
-                    numPicks: 0,
+                    pickLength: 0,
                 }),
             )
         })
@@ -378,7 +378,7 @@ describe('Lootery', () => {
             const allOtherStates = allStates.filter((state) => state !== GameState.Purchase)
             for (const state of allOtherStates) {
                 await lotto.setGameState(state)
-                await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }]))
+                await expect(lotto.pickTickets([{ whomst: bob.address, pick: [1, 2, 3, 4, 5] }]))
                     .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
                     .withArgs(state)
             }
@@ -392,12 +392,12 @@ describe('Lootery', () => {
             const totalSupply0 = await lotto.totalSupply()
 
             // Pick 3 tickets
-            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }]))
+            await expect(lotto.pickTickets([{ whomst: bob.address, pick: [1, 2, 3, 4, 5] }]))
                 .to.emit(lotto, 'TicketPurchased')
                 .withArgs(game.id, bob.address, 1n, [1, 2, 3, 4, 5])
             const pickTicketTx2 = await lotto.pickTickets([
-                { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
-                { whomst: bob.address, picks: [3, 4, 5, 6, 7] },
+                { whomst: alice.address, pick: [2, 3, 4, 5, 6] },
+                { whomst: bob.address, pick: [3, 4, 5, 6, 7] },
             ])
             await expect(pickTicketTx2)
                 .to.emit(lotto, 'TicketPurchased')
@@ -420,41 +420,39 @@ describe('Lootery', () => {
 
         it('should revert if ticket has invalid pick length', async () => {
             await lotto.setGameState(GameState.Purchase)
-            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 2, 3, 4, 5, 6] }]))
-                .to.be.revertedWithCustomError(lotto, 'InvalidNumPicks')
+            await expect(lotto.pickTickets([{ whomst: bob.address, pick: [1, 2, 3, 4, 5, 6] }]))
+                .to.be.revertedWithCustomError(lotto, 'InvalidPickLength')
                 .withArgs(6)
             // Ensure it still reverts even if there is a valid pick in there
             await expect(
                 lotto.pickTickets([
-                    { whomst: bob.address, picks: [1, 2, 3, 4, 5] },
-                    { whomst: bob.address, picks: [1, 2, 3, 4, 5, 6] },
+                    { whomst: bob.address, pick: [1, 2, 3, 4, 5] },
+                    { whomst: bob.address, pick: [1, 2, 3, 4, 5, 6] },
                 ]),
             )
-                .to.be.revertedWithCustomError(lotto, 'InvalidNumPicks')
+                .to.be.revertedWithCustomError(lotto, 'InvalidPickLength')
                 .withArgs(6)
         })
 
         it('should revert if ticket has duplicate picks', async () => {
             await lotto.setGameState(GameState.Purchase)
-            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [1, 1, 3, 4, 5] }]))
-                .to.be.revertedWithCustomError(lotto, 'UnsortedPicks')
+            await expect(lotto.pickTickets([{ whomst: bob.address, pick: [1, 1, 3, 4, 5] }]))
+                .to.be.revertedWithCustomError(lotto, 'UnsortedPick')
                 .withArgs([1, 1, 3, 4, 5])
         })
 
         it('should revert if pick has invalid numbers', async () => {
             await lotto.setGameState(GameState.Purchase)
             // 0 is invalid
-            // NB: The revert message is "UnsortedPicks" because the `lastPick` is initialised as 0,
+            // NB: The revert message is "UnsortedPick" because the `lastPick` is initialised as 0,
             // and the code asserts strict ordering i.e. `lastPick < picks[i]`
-            await expect(lotto.pickTickets([{ whomst: bob.address, picks: [0, 1, 3, 4, 5] }]))
-                .to.be.revertedWithCustomError(lotto, 'UnsortedPicks')
+            await expect(lotto.pickTickets([{ whomst: bob.address, pick: [0, 1, 3, 4, 5] }]))
+                .to.be.revertedWithCustomError(lotto, 'UnsortedPick')
                 .withArgs([0, 1, 3, 4, 5])
             // Over the max ball value
             const maxBallValue = await lotto.maxBallValue()
             await expect(
-                lotto.pickTickets([
-                    { whomst: bob.address, picks: [1, 3, 4, 5, maxBallValue + 1n] },
-                ]),
+                lotto.pickTickets([{ whomst: bob.address, pick: [1, 3, 4, 5, maxBallValue + 1n] }]),
             ).to.be.revertedWithCustomError(lotto, 'InvalidBallValue')
         })
     })
@@ -473,12 +471,12 @@ describe('Lootery', () => {
             await expect(
                 lotto
                     .connect(bob /** bob's not the owner */)
-                    .ownerPick([{ whomst: bob.address, picks: [1, 2, 3, 4, 5] }]),
+                    .ownerPick([{ whomst: bob.address, pick: [1, 2, 3, 4, 5] }]),
             ).to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
         })
 
         it('should mint valid tickets if called by owner', async () => {
-            await expect(lotto.ownerPick([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }]))
+            await expect(lotto.ownerPick([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }]))
                 .to.emit(lotto, 'TicketPurchased')
                 .withArgs(0, alice.address, 1n, [1, 2, 3, 4, 5])
             expect(await lotto.ownerOf(1n)).to.equal(alice.address)
@@ -512,8 +510,8 @@ describe('Lootery', () => {
             await expect(
                 lotto.purchase(
                     [
-                        { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
-                        { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                        { whomst: alice.address, pick: [1, 2, 3, 4, 5] },
+                        { whomst: alice.address, pick: [2, 3, 4, 5, 6] },
                     ],
                     ZeroAddress,
                 ),
@@ -539,7 +537,7 @@ describe('Lootery', () => {
 
             await expect(
                 lotto.purchase(
-                    [{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }],
+                    [{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }],
                     beneficiary.address,
                 ),
             ).to.be.revertedWithCustomError(lotto, 'UnknownBeneficiary')
@@ -559,8 +557,8 @@ describe('Lootery', () => {
             // Purchase 2 tickets
             const tx = lotto.purchase(
                 [
-                    { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
-                    { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                    { whomst: alice.address, pick: [1, 2, 3, 4, 5] },
+                    { whomst: alice.address, pick: [2, 3, 4, 5, 6] },
                 ],
                 beneficiary.address,
             )
@@ -596,8 +594,8 @@ describe('Lootery', () => {
             // Purchase 2 tickets
             const tx = lotto.purchase(
                 [
-                    { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
-                    { whomst: alice.address, picks: [2, 3, 4, 5, 6] },
+                    { whomst: alice.address, pick: [1, 2, 3, 4, 5] },
+                    { whomst: alice.address, pick: [2, 3, 4, 5, 6] },
                 ],
                 ZeroAddress,
             )
@@ -663,7 +661,7 @@ describe('Lootery', () => {
         })
 
         it('should request randomness if there are tickets sold in current game and there is ETH balance in contract', async () => {
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
 
             // Give contract some ETH balance
@@ -675,7 +673,7 @@ describe('Lootery', () => {
         })
 
         it('should revert if excess ETH cannot be refunded to caller', async () => {
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
 
             const _revertingReceiver = await new RevertingETHReceiver__factory(deployer).deploy()
@@ -693,7 +691,7 @@ describe('Lootery', () => {
         })
 
         it('should revert if contract cannot refund excess ETH', async () => {
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
 
             const requestPrice = await mockRandomiser.getRequestPrice(
@@ -711,7 +709,7 @@ describe('Lootery', () => {
         })
 
         it('should revert if contract does not have enough ETH balance to request randomness', async () => {
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
             // Zero the balance
             await setBalance(await lotto.getAddress(), 0n)
@@ -723,7 +721,7 @@ describe('Lootery', () => {
         })
 
         it('should revert if randomness requestId is too large', async () => {
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
             await mockRandomiser.setNextRequestId(2n ** 208n)
 
@@ -765,7 +763,7 @@ describe('Lootery', () => {
             // Expect the game to be finalised
             await expect(mockRandomiser.fulfillRandomWords(rId, [seed]))
                 .to.emit(lotto, 'GameFinalised')
-                .withArgs(gameId, await lotto.computeWinningBalls(seed))
+                .withArgs(gameId, await lotto.computeWinningPick(seed))
             expect((await lotto.currentGame()).state).to.eq(GameState.Purchase)
             expect((await lotto.gameData(gameId)).winningPickId).to.not.eq(game.winningPickId)
         })
@@ -895,8 +893,8 @@ describe('Lootery', () => {
                 it('should rollover current jackpot and unclaimed payouts to next game otherwise', async () => {
                     // Get some tickets going
                     await lotto.pickTickets([
-                        { whomst: alice.address, picks: [1, 2, 3, 4, 5] },
-                        { whomst: bob.address, picks: [1, 2, 3, 4, 5] },
+                        { whomst: alice.address, pick: [1, 2, 3, 4, 5] },
+                        { whomst: bob.address, pick: [1, 2, 3, 4, 5] },
                     ])
                     const gameData1 = await lotto.gameData(game0.id)
                     expect(gameData1.ticketsSold).to.eq(2)
@@ -943,9 +941,9 @@ describe('Lootery', () => {
         it('should burn NFT', async () => {
             const receiver = ethers.Wallet.createRandom().address
             // With seed=69420, the winning pick is [5,10,41,46,55]
-            const winningPick = Array.from(await lotto.computePicks(36101364786398240n))
+            const winningPick = Array.from(await lotto.computePick(36101364786398240n))
             const tokenId = (await lotto.totalSupply()) + 1n
-            await expect(lotto.pickTickets([{ whomst: receiver, picks: winningPick }]))
+            await expect(lotto.pickTickets([{ whomst: receiver, pick: winningPick }]))
                 .to.emit(lotto, 'Transfer')
                 .withArgs(ethers.ZeroAddress, receiver, tokenId)
             await fastForwardAndDraw(69420n)
@@ -972,15 +970,15 @@ describe('Lootery', () => {
 
         it('should revert if claim window has been missed', async () => {
             const tokenId = (await lotto.totalSupply()) + 1n
-            const winningPick = Array.from(await lotto.computePicks(36101364786398240n))
-            await expect(lotto.pickTickets([{ whomst: alice.address, picks: winningPick }]))
+            const winningPick = Array.from(await lotto.computePick(36101364786398240n))
+            await expect(lotto.pickTickets([{ whomst: alice.address, pick: winningPick }]))
                 .to.emit(lotto, 'Transfer')
                 .withArgs(ethers.ZeroAddress, alice.address, tokenId)
             await fastForwardAndDraw(69420n)
             // Don't claim & skip a game
             // We need to pick at least 1 ticket otherwise the game will be skipped and no VRF
             // request will be made
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await fastForwardAndDraw(99999n)
 
             // Try to claim winnings from 2 games ago
@@ -1001,7 +999,7 @@ describe('Lootery', () => {
                         prizeToken: testERC20,
                         shouldSkipSeedJackpot: true,
                     }))
-                    const numPicks = await lotto.numPicks()
+                    const pickLength = await lotto.pickLength()
                     const maxBallValue = await lotto.maxBallValue()
                     const jackpot = (await lotto.seedJackpotMinValue()) + randomBigInt(8)
                     await testERC20.mint(deployer.address, jackpot)
@@ -1011,7 +1009,7 @@ describe('Lootery', () => {
                         { length: Math.floor(Math.random() * 19) + 1 },
                         () => ({
                             whomst: ethers.Wallet.createRandom().address,
-                            picks: slikpik(numPicks, maxBallValue),
+                            pick: slikpik(pickLength, maxBallValue),
                         }),
                     )
                     const pickTx = lotto.pickTickets(tickets)
@@ -1065,12 +1063,12 @@ describe('Lootery', () => {
         it('should payout a share of the pot for winning ticket', async () => {
             const jackpot = await lotto.jackpot()
             expect(jackpot).to.eq(parseEther('10')) // `deployLootery` sets initial jackpot to 10 ETH
-            const winningPick = Array.from(await lotto.computePicks(36101364786398240n))
+            const winningPick = Array.from(await lotto.computePick(36101364786398240n))
             // Alice has the only winning ticket
             const tickets = [
-                { whomst: deployer.address, picks: [1n, 2n, 3n, 4n, 5n] },
-                { whomst: bob.address, picks: [2n, 3n, 4n, 5n, 6n] },
-                { whomst: alice.address, picks: winningPick },
+                { whomst: deployer.address, pick: [1n, 2n, 3n, 4n, 5n] },
+                { whomst: bob.address, pick: [2n, 3n, 4n, 5n, 6n] },
+                { whomst: alice.address, pick: winningPick },
             ]
             const pickTx = lotto.pickTickets(tickets)
             for (let i = 0; i < tickets.length; i++) {
@@ -1087,10 +1085,10 @@ describe('Lootery', () => {
             // Everyone else gets nothing
             await expect(lotto.claimWinnings(1))
                 .to.emit(lotto, 'NoWin')
-                .withArgs(computePickId(tickets[0].picks), 36101364786398240n)
+                .withArgs(computePickId(tickets[0].pick), 36101364786398240n)
             await expect(lotto.claimWinnings(2))
                 .to.emit(lotto, 'NoWin')
-                .withArgs(computePickId(tickets[1].picks), 36101364786398240n)
+                .withArgs(computePickId(tickets[1].pick), 36101364786398240n)
             // Ensure all the tokens were burnt after claiming, even if the user didn't win
             for (let i = 0; i < tickets.length; i++) {
                 await expect(lotto.ownerOf(i + 1)).to.be.revertedWithCustomError(
@@ -1292,22 +1290,22 @@ describe('Lootery', () => {
         })
     })
 
-    describe('#computePicks', () => {
-        let numPicks!: number
+    describe('#computePick', () => {
+        let pickLength!: number
         let maxBallValue!: number
         beforeEach(async () => {
             // Minimum of 2 numbers for a pick
-            numPicks = 2 + Math.floor(Math.random() * 25)
-            // maxBallValue in [numPicks, 256)
+            pickLength = 2 + Math.floor(Math.random() * 25)
+            // maxBallValue in [pickLength, 256)
             do {
                 maxBallValue = Number(randomBigInt(1))
-            } while (maxBallValue < numPicks)
+            } while (maxBallValue < pickLength)
             ;({ lotto } = await deployLotto({
                 deployer,
                 factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
-                numPicks: BigInt(numPicks),
+                pickLength: BigInt(pickLength),
                 maxBallValue: BigInt(maxBallValue),
             }))
         })
@@ -1315,29 +1313,29 @@ describe('Lootery', () => {
         for (let i = 0; i < runs; i++) {
             it(`should compute picks (${i + 1}/${runs})`, async () => {
                 const randomPickId = randomBigInt(32) & ~1n // Ensure 0th bit is always 0
-                expect(await lotto.computePicks(randomPickId)).to.deep.eq(
-                    computePick(randomPickId).slice(0, Number(await lotto.numPicks())),
+                expect(await lotto.computePick(randomPickId)).to.deep.eq(
+                    computePick(randomPickId).slice(0, Number(await lotto.pickLength())),
                 )
             })
         }
     })
 
-    describe('#computeWinningBalls', () => {
-        let numPicks!: number
+    describe('#computeWinningPick', () => {
+        let pickLength!: number
         let maxBallValue!: number
         beforeEach(async () => {
             // Minimum of 2 numbers for a pick
-            numPicks = 2 + Math.floor(Math.random() * 25)
-            // maxBallValue in [numPicks, 256)
+            pickLength = 2 + Math.floor(Math.random() * 25)
+            // maxBallValue in [pickLength, 256)
             do {
                 maxBallValue = Number(randomBigInt(1))
-            } while (maxBallValue < numPicks)
+            } while (maxBallValue < pickLength)
             ;({ lotto } = await deployLotto({
                 deployer,
                 factory,
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
-                numPicks: BigInt(numPicks),
+                pickLength: BigInt(pickLength),
                 maxBallValue: BigInt(maxBallValue),
             }))
         })
@@ -1348,10 +1346,10 @@ describe('Lootery', () => {
                 // Pick is always a sorted sequence of unique numbers produced by the
                 // Feistel Shuffle with 12 rounds
                 const pick = Array.from(
-                    { length: numPicks },
+                    { length: pickLength },
                     (_, i) => 1n + shuffle(BigInt(i), BigInt(maxBallValue), seed, 12n),
                 ).sort((a, b) => Number(a - b))
-                expect(Array.from(await lotto.computeWinningBalls(seed))).to.deep.eq(pick)
+                expect(Array.from(await lotto.computeWinningPick(seed))).to.deep.eq(pick)
             })
         }
     })
@@ -1422,7 +1420,7 @@ describe('Lootery', () => {
                 gamePeriod: 3600n,
                 prizeToken: testERC20,
             })
-            await lotto.pickTickets([{ whomst: alice.address, picks: [1, 2, 3, 4, 5] }])
+            await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             const tokenUri = await lotto.tokenURI(1)
             expect(tokenUri.startsWith('data:application/json;base64,')).to.eq(true)
         })

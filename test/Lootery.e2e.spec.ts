@@ -85,7 +85,7 @@ describe('Lootery e2e', () => {
             [
                 {
                     whomst: bob.address,
-                    picks: losingTicket,
+                    pick: losingTicket,
                 },
             ],
             ZeroAddress,
@@ -129,7 +129,7 @@ describe('Lootery e2e', () => {
             [
                 {
                     whomst: bob.address,
-                    picks: winningTicket,
+                    pick: winningTicket,
                 },
             ],
             ZeroAddress,
@@ -213,7 +213,7 @@ describe('Lootery e2e', () => {
             [
                 {
                     whomst: bob.address,
-                    picks: winningTicket,
+                    pick: winningTicket,
                 },
             ],
             ZeroAddress,
@@ -222,7 +222,7 @@ describe('Lootery e2e', () => {
             [
                 {
                     whomst: alice.address,
-                    picks: winningTicket,
+                    pick: winningTicket,
                 },
             ],
             ZeroAddress,
@@ -306,7 +306,7 @@ describe('Lootery e2e', () => {
 
         const seed = 6942069420n
         await fastForwardAndDraw(seed)
-        expect(await lotto.computeWinningBalls(seed)).to.deep.eq(winningTicket)
+        expect(await lotto.computeWinningPick(seed)).to.deep.eq(winningTicket)
 
         // Current jackpot + 2 tickets
         expect(await lotto.unclaimedPayouts()).to.be.eq(parseEther('10.1'))
@@ -387,7 +387,7 @@ describe('Lootery e2e', () => {
         await lotto.ownerPick([
             {
                 whomst: bob.address,
-                picks: [1, 2, 3, 4, 5],
+                pick: [1, 2, 3, 4, 5],
             },
         ])
 
@@ -412,7 +412,7 @@ describe('Lootery e2e', () => {
             }
 
             const { lotto } = await loadFixture(deploy)
-            const numPicks = await lotto.numPicks()
+            const pickLength = await lotto.pickLength()
             const domain = await lotto.maxBallValue()
 
             await testERC20.mint(deployer, parseEther('1000'))
@@ -423,7 +423,7 @@ describe('Lootery e2e', () => {
                 .map((_) => Wallet.createRandom().address)
             const purchaseTx = lotto.purchase(
                 randomAddresses.map((whomst) => ({
-                    picks: slikpik(numPicks, domain),
+                    pick: slikpik(pickLength, domain),
                     whomst,
                 })),
                 ZeroAddress,

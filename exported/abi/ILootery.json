@@ -115,11 +115,11 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "numPicks",
+        "name": "pickLength",
         "type": "uint256"
       }
     ],
-    "name": "InvalidNumPicks",
+    "name": "InvalidPickLength",
     "type": "error"
   },
   {
@@ -272,11 +272,11 @@
     "inputs": [
       {
         "internalType": "uint8[]",
-        "name": "picks",
+        "name": "pick",
         "type": "uint8[]"
       }
     ],
-    "name": "UnsortedPicks",
+    "name": "UnsortedPick",
     "type": "error"
   },
   {
@@ -491,7 +491,7 @@
       {
         "indexed": false,
         "internalType": "uint8[]",
-        "name": "winningPicks",
+        "name": "winningPick",
         "type": "uint8[]"
       }
     ],
@@ -673,7 +673,7 @@
       {
         "indexed": false,
         "internalType": "uint8[]",
-        "name": "picks",
+        "name": "pick",
         "type": "uint8[]"
       }
     ],
@@ -832,7 +832,7 @@
           },
           {
             "internalType": "uint8",
-            "name": "numPicks",
+            "name": "pickLength",
             "type": "uint8"
           },
           {

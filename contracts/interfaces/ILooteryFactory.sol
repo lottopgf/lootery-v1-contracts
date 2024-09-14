@@ -48,7 +48,7 @@ interface ILooteryFactory {
     function create(
         string memory name,
         string memory symbol,
-        uint8 numPicks,
+        uint8 pickLength,
         uint8 maxBallValue,
         uint256 gamePeriod,
         uint256 ticketPrice,

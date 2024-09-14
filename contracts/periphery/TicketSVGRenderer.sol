@@ -25,14 +25,14 @@ contract TicketSVGRenderer is ITicketSVGRenderer, ERC165 {
     function renderSVG(
         string memory name,
         uint8 maxPick,
-        uint8[] memory picks
+        uint8[] memory pick
     ) public pure returns (string memory) {
-        if (picks.length == 0) revert EmptyPicks();
-        if (picks[0] > maxPick) revert OutOfRange(picks[0], maxPick);
-        if (picks.length > 1) {
-            for (uint256 i = 1; i < picks.length; ++i) {
-                if (picks[i - 1] >= picks[i]) revert UnsortedPicks(picks);
-                if (picks[i] > maxPick) revert OutOfRange(picks[i], maxPick);
+        if (pick.length == 0) revert EmptyPicks();
+        if (pick[0] > maxPick) revert OutOfRange(pick[0], maxPick);
+        if (pick.length > 1) {
+            for (uint256 i = 1; i < pick.length; ++i) {
+                if (pick[i - 1] >= pick[i]) revert UnsortedPick(pick);
+                if (pick[i] > maxPick) revert OutOfRange(pick[i], maxPick);
             }
         }
 
@@ -48,7 +48,7 @@ contract TicketSVGRenderer is ITicketSVGRenderer, ERC165 {
                 : NUMBERS_PER_ROW;
             for (uint256 c; c < cols; ++c) {
                 uint256 num = r * NUMBERS_PER_ROW + c + 1;
-                if (p < picks.length && picks[p] == num) {
+                if (p < pick.length && pick[p] == num) {
                     p += 1;
                     gridSVG = string(
                         abi.encodePacked(
@@ -107,7 +107,7 @@ contract TicketSVGRenderer is ITicketSVGRenderer, ERC165 {
         string memory name,
         uint256 tokenId,
         uint8 maxPick,
-        uint8[] memory picks
+        uint8[] memory pick
     ) external pure returns (string memory) {
         return
             string(
@@ -123,7 +123,7 @@ contract TicketSVGRenderer is ITicketSVGRenderer, ERC165 {
                                 '", "description":"POWERBALD LOL", "image": "',
                                 "data:image/svg+xml;base64,",
                                 Base64.encode(
-                                    bytes(renderSVG(name, maxPick, picks))
+                                    bytes(renderSVG(name, maxPick, pick))
                                 ),
                                 '"}'
                             )

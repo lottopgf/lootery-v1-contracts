@@ -130,7 +130,7 @@ contract LooteryFactory is
     /// @notice Launch your own lotto
     /// @param name Name of the lotto (also used for ticket NFTs)
     /// @param symbol Symbol of the lotto (used for ticket NFTs)
-    /// @param numPicks Number of balls that must be picked per draw
+    /// @param pickLength Number of balls that must be picked per draw
     /// @param maxBallValue Maximum value that a picked ball can have
     ///     (excludes 0)
     /// @param gamePeriod The number of seconds that must pass before a draw
@@ -147,7 +147,7 @@ contract LooteryFactory is
     function create(
         string memory name,
         string memory symbol,
-        uint8 numPicks,
+        uint8 pickLength,
         uint8 maxBallValue,
         uint256 gamePeriod,
         uint256 ticketPrice,
@@ -160,7 +160,7 @@ contract LooteryFactory is
             owner: msg.sender,
             name: name,
             symbol: symbol,
-            numPicks: numPicks,
+            pickLength: pickLength,
             maxBallValue: maxBallValue,
             gamePeriod: gamePeriod,
             ticketPrice: ticketPrice,

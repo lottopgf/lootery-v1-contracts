@@ -59,7 +59,7 @@ contract Lootery is
     address public factory;
     /// @notice How many numbers must be picked per draw (and per ticket)
     ///     The range of this number should be something like 3-7
-    uint8 public numPicks;
+    uint8 public pickLength;
     /// @notice Maximum value of a ball (pick) s.t. value \in [1, maxBallValue]
     uint8 public maxBallValue;
     /// @notice How long a game lasts in seconds (before numbers are drawn)
@@ -136,10 +136,10 @@ contract Lootery is
 
         factory = msg.sender;
 
-        if (initConfig.numPicks == 0) {
-            revert InvalidNumPicks(initConfig.numPicks);
+        if (initConfig.pickLength == 0) {
+            revert InvalidPickLength(initConfig.pickLength);
         }
-        numPicks = initConfig.numPicks;
+        pickLength = initConfig.pickLength;
         maxBallValue = initConfig.maxBallValue;
 
         if (initConfig.gamePeriod < 10 minutes) {
@@ -273,30 +273,30 @@ contract Lootery is
             winningPickId: game.winningPickId
         });
 
-        uint256 numPicks_ = numPicks;
+        uint256 pickLength_ = pickLength;
         uint256 maxBallValue_ = maxBallValue;
         uint256 startingTokenId = totalSupply + 1;
         totalSupply += ticketsCount;
         for (uint256 t; t < ticketsCount; ++t) {
             address whomst = tickets[t].whomst;
-            uint8[] memory picks = tickets[t].picks;
+            uint8[] memory pick = tickets[t].pick;
 
-            if (picks.length != numPicks_) {
-                revert InvalidNumPicks(picks.length);
+            if (pick.length != pickLength_) {
+                revert InvalidPickLength(pick.length);
             }
 
-            // Assert picks are ascendingly sorted, with no possibility of duplicates
-            uint8 lastPick;
-            for (uint256 i; i < numPicks_; ++i) {
-                uint8 pick = picks[i];
-                if (pick <= lastPick) revert UnsortedPicks(picks);
-                if (pick > maxBallValue_) revert InvalidBallValue(pick);
-                lastPick = pick;
+            // Assert balls are ascendingly sorted, with no possibility of duplicates
+            uint8 lastBall;
+            for (uint256 i; i < pickLength_; ++i) {
+                uint8 ball = pick[i];
+                if (ball <= lastBall) revert UnsortedPick(pick);
+                if (ball > maxBallValue_) revert InvalidBallValue(ball);
+                lastBall = ball;
             }
 
             // Record picked numbers
             uint256 tokenId = startingTokenId + t;
-            uint256 pickId = Pick.id(picks);
+            uint256 pickId = Pick.id(pick);
             purchasedTickets[tokenId] = PurchasedTicket({
                 gameId: currentGameId,
                 pickId: pickId
@@ -304,7 +304,7 @@ contract Lootery is
 
             // Account for this pick set
             tokenByPickIdentity[currentGameId][pickId].push(tokenId);
-            emit TicketPurchased(currentGameId, whomst, tokenId, picks);
+            emit TicketPurchased(currentGameId, whomst, tokenId, pick);
         }
         // Finally, mint NFTs
         for (uint256 t; t < ticketsCount; ++t) {
@@ -456,7 +456,7 @@ contract Lootery is
         randomnessRequest = RandomnessRequest({requestId: 0, timestamp: 0});
 
         // Pick winning numbers
-        uint8[] memory balls = computeWinningBalls(randomWords[0]);
+        uint8[] memory balls = computeWinningPick(randomWords[0]);
         uint248 gameId = currentGame.id;
         emit GameFinalised(gameId, balls);
 
@@ -688,19 +688,19 @@ contract Lootery is
 
     /// @notice Helper to parse a pick id into a pick array
     /// @param pickId Pick id
-    function computePicks(
+    function computePick(
         uint256 pickId
-    ) public view returns (uint8[] memory picks) {
-        return Pick.parse(numPicks, pickId);
+    ) public view returns (uint8[] memory pick) {
+        return Pick.parse(pickLength, pickId);
     }
 
     /// @notice Helper to compute the winning numbers/balls given a random seed.
     /// @param randomSeed Seed that determines the permutation of BALLS
     /// @return balls Ordered set of winning numbers
-    function computeWinningBalls(
+    function computeWinningPick(
         uint256 randomSeed
     ) public view returns (uint8[] memory balls) {
-        return Pick.draw(numPicks, maxBallValue, randomSeed);
+        return Pick.draw(pickLength, maxBallValue, randomSeed);
     }
 
     /// @notice Set the SVG renderer for tickets (privileged)
@@ -740,7 +740,7 @@ contract Lootery is
                 name(),
                 tokenId,
                 maxBallValue,
-                Pick.parse(numPicks, purchasedTickets[tokenId].pickId)
+                Pick.parse(pickLength, purchasedTickets[tokenId].pickId)
             );
     }
 }

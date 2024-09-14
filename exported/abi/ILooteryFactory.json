@@ -114,7 +114,7 @@
       },
       {
         "internalType": "uint8",
-        "name": "numPicks",
+        "name": "pickLength",
         "type": "uint8"
       },
       {

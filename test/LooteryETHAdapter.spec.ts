@@ -74,7 +74,7 @@ describe('Lootery ETH Adapter', () => {
                 [
                     {
                         whomst: bob.address,
-                        picks: [1n, 2n, 3n, 4n, 5n],
+                        pick: [1n, 2n, 3n, 4n, 5n],
                     },
                 ],
                 ZeroAddress,
@@ -87,7 +87,7 @@ describe('Lootery ETH Adapter', () => {
             [
                 {
                     whomst: bob.address,
-                    picks: [1n, 2n, 3n, 4n, 5n],
+                    pick: [1n, 2n, 3n, 4n, 5n],
                 },
             ],
             ZeroAddress,
