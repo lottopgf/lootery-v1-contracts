@@ -288,6 +288,7 @@ describe('Lootery e2e', () => {
         async function deploy() {
             return deployLotto({
                 deployer,
+                factory,
                 gamePeriod,
                 prizeToken: testERC20,
             })
@@ -341,6 +342,7 @@ describe('Lootery e2e', () => {
         async function deploy() {
             return deployLotto({
                 deployer,
+                factory,
                 gamePeriod,
                 prizeToken: testERC20,
             })
@@ -369,6 +371,7 @@ describe('Lootery e2e', () => {
         async function deploy() {
             return deployLotto({
                 deployer,
+                factory,
                 gamePeriod: 86400n,
                 prizeToken: testERC20,
                 seedJackpotDelay: 3600n /** 1h */,
@@ -402,6 +405,7 @@ describe('Lootery e2e', () => {
             async function deploy() {
                 return deployLotto({
                     deployer,
+                    factory,
                     gamePeriod: 1n * 60n * 60n,
                     prizeToken: testERC20,
                 })
@@ -438,6 +442,7 @@ describe('Lootery e2e', () => {
             async function deploy() {
                 return deployLotto({
                     deployer,
+                    factory,
                     gamePeriod,
                     prizeToken: testERC20,
                 })

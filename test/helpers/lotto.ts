@@ -2,12 +2,11 @@ import { SignerWithAddress } from '@nomicfoundation/hardhat-ethers/signers'
 import {
     Lootery,
     Lootery__factory,
-    LooteryHarness__factory,
     MockRandomiser__factory,
     MockERC20,
-    TicketSVGRenderer__factory,
+    LooteryFactory,
+    LooteryHarness__factory,
 } from '../../typechain-types'
-import { deployProxy } from './deployProxy'
 import { encrypt } from '@kevincharm/gfc-fpe'
 import { time, setBalance } from '@nomicfoundation/hardhat-network-helpers'
 import {
@@ -38,6 +37,7 @@ export function computePickId(picks: bigint[]) {
 
 export async function deployLotto({
     deployer,
+    factory,
     gamePeriod,
     prizeToken,
     numPicks,
@@ -47,6 +47,7 @@ export async function deployLotto({
     seedJackpotMinValue,
 }: {
     deployer: SignerWithAddress
+    factory: LooteryFactory
     /** seconds */
     gamePeriod: bigint
     prizeToken: MockERC20
@@ -57,35 +58,27 @@ export async function deployLotto({
     shouldSkipSeedJackpot?: boolean
     seedJackpotMinValue?: bigint
 }) {
-    const mockRandomiser = await new MockRandomiser__factory(deployer).deploy()
-    const ticketSVGRenderer = await new TicketSVGRenderer__factory(deployer).deploy()
-    const lotto = await deployProxy({
-        deployer,
-        implementation: LooteryHarness__factory,
-        initData: LooteryHarness__factory.createInterface().encodeFunctionData('init', [
-            {
-                owner: deployer.address,
-                name: 'Lotto',
-                symbol: 'LOTTO',
-                numPicks: numPicks || 5,
-                maxBallValue: maxBallValue || 69,
-                gamePeriod,
-                ticketPrice: parseEther('0.1'),
-                communityFeeBps: 5000, // 50%
-                randomiser: await mockRandomiser.getAddress(),
-                prizeToken: await prizeToken.getAddress(),
-                seedJackpotDelay:
-                    typeof seedJackpotDelay === 'undefined'
-                        ? 3600
-                        : seedJackpotDelay /** default to 1h */,
-                seedJackpotMinValue:
-                    typeof seedJackpotMinValue === 'undefined'
-                        ? parseEther('1')
-                        : seedJackpotMinValue,
-                ticketSVGRenderer: await ticketSVGRenderer.getAddress(),
-            },
-        ]),
-    })
+    const createTx = await factory
+        .connect(deployer)
+        .create(
+            'Lotto',
+            'LOTTO',
+            numPicks || 5,
+            maxBallValue || 69,
+            gamePeriod,
+            parseEther('0.1'),
+            5000,
+            await prizeToken.getAddress(),
+            typeof seedJackpotDelay === 'undefined' ? 3600 : seedJackpotDelay /** default to 1h */,
+            typeof seedJackpotMinValue === 'undefined' ? parseEther('1') : seedJackpotMinValue,
+        )
+        .then((tx) => tx.wait())
+    const looteryLaunchedEvent = createTx?.logs
+        .map((log) => factory.interface.parseLog(log))
+        .find((log) => log?.name === 'LooteryLaunched')
+    if (!looteryLaunchedEvent) throw new Error('Create lotto via factory failed')
+    const lotto = LooteryHarness__factory.connect(looteryLaunchedEvent.args[0], deployer)
+    const mockRandomiser = MockRandomiser__factory.connect(await lotto.randomiser(), deployer)
 
     if (!shouldSkipSeedJackpot) {
         // Seed initial jackpot with 10 ETH

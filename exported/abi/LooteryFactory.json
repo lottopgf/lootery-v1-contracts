@@ -382,6 +382,19 @@
   },
   {
     "inputs": [],
+    "name": "getFeeRecipient",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getLooteryMasterCopy",
     "outputs": [
       {
@@ -548,6 +561,19 @@
       }
     ],
     "name": "revokeRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "feeRecipient",
+        "type": "address"
+      }
+    ],
+    "name": "setFeeRecipient",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
