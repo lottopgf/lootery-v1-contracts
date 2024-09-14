@@ -40,7 +40,7 @@ contract EchidnaLootery {
                     owner: owner,
                     name: "Lootery Test",
                     symbol: "TEST",
-                    numPicks: 5,
+                    pickLength: 5,
                     maxBallValue: 36,
                     gamePeriod: 10 minutes,
                     ticketPrice: 0.01 ether,
@@ -119,7 +119,7 @@ contract EchidnaLootery {
             );
             tickets[i] = ILootery.Ticket({
                 whomst: msg.sender,
-                picks: lootery.computeWinningBalls(lastTicketSeed)
+                pick: lootery.computeWinningPick(lastTicketSeed)
             });
         }
         // TODO: fuzz beneficiaries

@@ -45,7 +45,7 @@
           },
           {
             "internalType": "uint8[]",
-            "name": "picks",
+            "name": "pick",
             "type": "uint8[]"
           }
         ],

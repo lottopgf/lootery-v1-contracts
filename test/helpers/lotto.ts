@@ -40,7 +40,7 @@ export async function deployLotto({
     factory,
     gamePeriod,
     prizeToken,
-    numPicks,
+    pickLength,
     maxBallValue,
     seedJackpotDelay,
     shouldSkipSeedJackpot,
@@ -51,7 +51,7 @@ export async function deployLotto({
     /** seconds */
     gamePeriod: bigint
     prizeToken: MockERC20
-    numPicks?: bigint
+    pickLength?: bigint
     maxBallValue?: bigint
     /** seconds */
     seedJackpotDelay?: bigint
@@ -63,7 +63,7 @@ export async function deployLotto({
         .create(
             'Lotto',
             'LOTTO',
-            numPicks || 5,
+            pickLength || 5,
             maxBallValue || 69,
             gamePeriod,
             parseEther('0.1'),
@@ -127,11 +127,11 @@ export function shuffle(i: bigint, domain: bigint, seed: bigint, rounds: bigint)
     return encrypt(i, domain, seed, rounds, roundFn)
 }
 
-export function slikpik(numPicks: bigint, domain: bigint) {
+export function slikpik(pickLength: bigint, domain: bigint) {
     const seed = BigInt(hexlify(crypto.getRandomValues(new Uint8Array(32))))
 
     const picks: bigint[] = []
-    for (let i = 0; i < numPicks; i++) {
+    for (let i = 0; i < pickLength; i++) {
         const pick = 1n + shuffle(BigInt(i), domain, seed, 12n)
         picks.push(pick)
     }
@@ -146,16 +146,16 @@ export function slikpik(numPicks: bigint, domain: bigint) {
  * @param whomst Who to mint the ticket to
  */
 export async function buySlikpik(connectedLotto: Lootery, whomst: string, beneficiary?: string) {
-    const numPicks = await connectedLotto.numPicks()
+    const pickLength = await connectedLotto.pickLength()
     const domain = await connectedLotto.maxBallValue()
     // Generate shuffled pick
-    const picks = slikpik(numPicks, domain)
+    const pick = slikpik(pickLength, domain)
     const tx = await connectedLotto
         .purchase(
             [
                 {
                     whomst,
-                    picks,
+                    pick,
                 },
             ],
             beneficiary || ZeroAddress,
@@ -178,17 +178,17 @@ export async function buySlikpik(connectedLotto: Lootery, whomst: string, benefi
  * with enough funds to buy a ticket.
  * @param connectedLotto Lottery contract
  * @param whomst Who to mint the ticket to
- * @param picks Picks
+ * @param pick Picks
  */
 export async function purchaseTicket(
     connectedLotto: Lootery,
     whomst: string,
-    picks: BigNumberish[],
+    pick: BigNumberish[],
     beneficiary?: string,
 ) {
-    const numPicks = await connectedLotto.numPicks()
-    if (picks.length !== Number(numPicks)) {
-        throw new Error(`Invalid number of picks (expected ${numPicks}, got picks.length)`)
+    const pickLength = await connectedLotto.pickLength()
+    if (pick.length !== Number(pickLength)) {
+        throw new Error(`Invalid number of picks (expected ${pickLength}, got picks.length)`)
     }
     // const ticketPrice = await connectedLotto.ticketPrice()
     const tx = await connectedLotto
@@ -196,7 +196,7 @@ export async function purchaseTicket(
             [
                 {
                     whomst,
-                    picks,
+                    pick,
                 },
             ],
             beneficiary || ZeroAddress,

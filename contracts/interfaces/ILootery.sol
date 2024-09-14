@@ -13,7 +13,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
         address owner;
         string name;
         string symbol;
-        uint8 numPicks;
+        uint8 pickLength;
         uint8 maxBallValue;
         uint256 gamePeriod;
         uint256 ticketPrice;
@@ -51,7 +51,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
         address whomst;
         /// @notice Lotto numbers, pick wisely! Picks must be ASCENDINGLY
         ///     ORDERED, with NO DUPLICATES!
-        uint8[] picks;
+        uint8[] pick;
     }
 
     struct Game {
@@ -82,14 +82,14 @@ interface ILootery is IRandomiserCallback, IERC721 {
         uint256 indexed gameId,
         address indexed whomst,
         uint256 indexed tokenId,
-        uint8[] picks
+        uint8[] pick
     );
     event BeneficiaryPaid(
         uint256 indexed gameId,
         address indexed beneficiary,
         uint256 value
     );
-    event GameFinalised(uint256 gameId, uint8[] winningPicks);
+    event GameFinalised(uint256 gameId, uint8[] winningPick);
     event Transferred(address to, uint256 value);
     event WinningsClaimed(
         uint256 indexed tokenId,
@@ -123,7 +123,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     event ProtocolFeePaid(address indexed to, uint256 value);
 
     error TransferFailure(address to, uint256 value, bytes reason);
-    error InvalidNumPicks(uint256 numPicks);
+    error InvalidPickLength(uint256 pickLength);
     error InvalidGamePeriod(uint256 gamePeriod);
     error InvalidTicketPrice(uint256 ticketPrice);
     error InvalidFeeShares();
@@ -132,7 +132,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error InvalidSeedJackpotConfig(uint256 delay, uint256 minValue);
     error IncorrectPaymentAmount(uint256 paid, uint256 expected);
     error InvalidTicketSVGRenderer(address renderer);
-    error UnsortedPicks(uint8[] picks);
+    error UnsortedPick(uint8[] pick);
     error InvalidBallValue(uint256 ballValue);
     error GameAlreadyDrawn();
     error UnexpectedState(GameState actual);

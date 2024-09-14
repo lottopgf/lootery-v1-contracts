@@ -260,11 +260,11 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "numPicks",
+        "name": "pickLength",
         "type": "uint256"
       }
     ],
-    "name": "InvalidNumPicks",
+    "name": "InvalidPickLength",
     "type": "error"
   },
   {
@@ -455,11 +455,11 @@
     "inputs": [
       {
         "internalType": "uint8[]",
-        "name": "picks",
+        "name": "pick",
         "type": "uint8[]"
       }
     ],
-    "name": "UnsortedPicks",
+    "name": "UnsortedPick",
     "type": "error"
   },
   {
@@ -674,7 +674,7 @@
       {
         "indexed": false,
         "internalType": "uint8[]",
-        "name": "winningPicks",
+        "name": "winningPick",
         "type": "uint8[]"
       }
     ],
@@ -888,7 +888,7 @@
       {
         "indexed": false,
         "internalType": "uint8[]",
-        "name": "picks",
+        "name": "pick",
         "type": "uint8[]"
       }
     ],
@@ -1134,11 +1134,11 @@
         "type": "uint256"
       }
     ],
-    "name": "computePicks",
+    "name": "computePick",
     "outputs": [
       {
         "internalType": "uint8[]",
-        "name": "picks",
+        "name": "pick",
         "type": "uint8[]"
       }
     ],
@@ -1153,7 +1153,7 @@
         "type": "uint256"
       }
     ],
-    "name": "computeWinningBalls",
+    "name": "computeWinningPick",
     "outputs": [
       {
         "internalType": "uint8[]",
@@ -1284,7 +1284,7 @@
           },
           {
             "internalType": "uint8",
-            "name": "numPicks",
+            "name": "pickLength",
             "type": "uint8"
           },
           {
@@ -1453,19 +1453,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "numPicks",
-    "outputs": [
-      {
-        "internalType": "uint8",
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -1532,7 +1519,7 @@
           },
           {
             "internalType": "uint8[]",
-            "name": "picks",
+            "name": "pick",
             "type": "uint8[]"
           }
         ],
@@ -1544,6 +1531,19 @@
     "name": "ownerPick",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pickLength",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1570,7 +1570,7 @@
           },
           {
             "internalType": "uint8[]",
-            "name": "picks",
+            "name": "pick",
             "type": "uint8[]"
           }
         ],

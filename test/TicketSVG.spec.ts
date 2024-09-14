@@ -62,13 +62,13 @@ describe('TicketSVG', () => {
         it('should revert is pick is unsorted', async () => {
             await expect(
                 ticketSVGRenderer.renderSVG('The Lootery', 255, [5, 2, 4, 3, 1]),
-            ).to.be.revertedWithCustomError(ticketSVGRenderer, 'UnsortedPicks')
+            ).to.be.revertedWithCustomError(ticketSVGRenderer, 'UnsortedPick')
         })
 
         it('should render SVG', async () => {
             const maxValue = 26
-            const numPicks = 5
-            const picks = Array(numPicks)
+            const pickLength = 5
+            const picks = Array(pickLength)
                 .fill(0)
                 .map((_, i) => 1n + shuffle(BigInt(i), BigInt(maxValue), 6942069420n, 12n))
                 .sort((a, b) => Number(a - b))
@@ -81,8 +81,8 @@ describe('TicketSVG', () => {
     describe('#renderTokenURI', () => {
         it('should render tokenURI', async () => {
             const maxValue = 26
-            const numPicks = 5
-            const picks = Array(numPicks)
+            const pickLength = 5
+            const picks = Array(pickLength)
                 .fill(0)
                 .map((_, i) => 1n + shuffle(BigInt(i), BigInt(maxValue), 6942069420n, 12n))
                 .sort((a, b) => Number(a - b))
