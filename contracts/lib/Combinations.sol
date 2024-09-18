@@ -57,7 +57,7 @@ library Combinations {
                 }
 
                 ++count;
-                pickIdCounts[mapped]++;
+                ++pickIdCounts[mapped];
 
                 // "Gosper's hack"
                 uint256 c = comb & uint256(-int256(comb));

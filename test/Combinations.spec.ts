@@ -21,26 +21,36 @@ describe.only('Combinations', () => {
     })
 
     describe('#genCombinations', () => {
-        it('should generate 7 choose 5 combinations', async () => {
-            const tier = 3
-            const pickLength = 7
-            const winningPick = Array.from({ length: pickLength }, (_, i) => BigInt(i + 1))
-            const winningPickId = computePickId(winningPick)
-            const gasUsed = await combs.generateSubsets.staticCall(winningPickId, pickLength - tier)
-            await combs.generateSubsets(winningPickId, pickLength - tier)
-
-            const expectedCombs = genCombinations(winningPick.map(Number), pickLength - tier)
-            console.log(
-                expectedCombs
-                    .map((comb) => computePickId(comb.map(BigInt)))
-                    .map((comb) => comb.toString(2)),
-            )
-            for (const comb of expectedCombs) {
-                const pickId = computePickId(comb.map(BigInt))
-                expect(await combs.pickIdCountsPerGame(0, pickId)).to.equal(1)
-            }
-            console.log(`gasUsed: ${gasUsed}`)
-        })
+        for (let pickLength = 1; pickLength <= 7; ++pickLength) {
+            const tiers = Math.ceil(pickLength / 2)
+            it('should generate combinations', async () => {
+                const winningPick = Array.from({ length: pickLength }, (_, i) => BigInt(i + 1))
+                const winningPickId = computePickId(winningPick)
+                let totalGasUsed = 0n
+                for (let t = 0; t < tiers; ++t) {
+                    const gasUsed = await combs.generateSubsets.staticCall(
+                        winningPickId,
+                        pickLength - t,
+                    )
+                    totalGasUsed += gasUsed
+                    await combs.generateSubsets(winningPickId, pickLength - t)
+                    console.log(
+                        `gasUsed for tier ${t} (${pickLength - t}/${pickLength}): ${gasUsed}`,
+                    )
+                    const expectedCombs = genCombinations(winningPick.map(Number), pickLength - t)
+                    console.log(
+                        expectedCombs
+                            .map((comb) => computePickId(comb.map(BigInt)))
+                            .map((comb) => comb.toString(2)),
+                    )
+                    for (const comb of expectedCombs) {
+                        const pickId = computePickId(comb.map(BigInt))
+                        expect(await combs.pickIdCountsPerGame(0, pickId)).to.equal(1)
+                    }
+                }
+                console.log(`totalGasUsed: ${totalGasUsed}`)
+            })
+        }
     })
 })
 
