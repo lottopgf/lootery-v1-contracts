@@ -32,33 +32,21 @@ library Combinations {
     /// @param k Size of subsets to generate
     function generateSubsets(
         uint256 set,
-        uint256 k
-    ) internal pure returns (uint256[] memory) {
+        uint256 k,
+        mapping(uint256 pickId => uint256 count) storage pickIdCounts
+    ) internal {
         unchecked {
-            // Count the number of set bits in the original bitSet
             uint256 n = LibBit.popCount(set);
+            assert(k <= n);
 
-            // If k is greater than the total number of set bits, return an empty array
-            if (k > n) {
-                return new uint256[](0);
-            }
-
-            // Calculate the binomial coefficient (n choose k) to get the number of subsets
-            uint256 nCombs = choose(n, k);
-
-            // Create an array to store subsets with popcount k
-            uint256[] memory subsets = new uint256[](nCombs);
-            uint256 s;
-
-            // Generate subsets using Gosper's hack
             uint256 bound = 1 << n;
             uint256 comb = (1 << k) - 1;
+            uint256 count;
             while (comb < bound) {
-                // Map the subset back to the original set
                 uint256 mapped;
                 uint256 _set = set;
                 uint256 _comb = comb;
-                for (uint256 i = 0; i < 256 && _set != 0; i++) {
+                for (uint256 i; i < 256 && _set != 0; ++i) {
                     if (_set & 1 == 1) {
                         if (_comb & 1 == 1) {
                             mapped |= (1 << i);
@@ -68,16 +56,15 @@ library Combinations {
                     _set >>= 1;
                 }
 
-                subsets[s] = mapped;
-                ++s;
+                ++count;
+                pickIdCounts[mapped]++;
 
-                // Gosper's hack to generate the next subset
+                // "Gosper's hack"
                 uint256 c = comb & uint256(-int256(comb));
                 uint256 r = comb + c;
                 comb = (((r ^ comb) >> 2) / c) | r;
             }
-
-            return subsets;
+            assert(count == choose(n, k));
         }
     }
 }

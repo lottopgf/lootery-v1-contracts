@@ -4,6 +4,9 @@ pragma solidity ^0.8;
 import {Combinations} from "../lib/Combinations.sol";
 
 contract CombinationsConsumer {
+    mapping(uint256 gameId => mapping(uint256 pickId => uint256 count))
+        public pickIdCountsPerGame;
+
     function choose(
         uint256 n,
         uint256 k
@@ -16,9 +19,9 @@ contract CombinationsConsumer {
     function generateSubsets(
         uint256 set,
         uint256 k
-    ) public view returns (uint256[] memory out, uint256 gasUsed) {
+    ) public returns (uint256 gasUsed) {
         gasUsed = gasleft();
-        out = Combinations.generateSubsets(set, k);
+        Combinations.generateSubsets(set, k, pickIdCountsPerGame[0]);
         gasUsed -= gasleft();
     }
 }
