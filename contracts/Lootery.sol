@@ -136,7 +136,9 @@ contract Lootery is
 
         factory = msg.sender;
 
-        if (initConfig.pickLength == 0) {
+        // Pick length of 0 doesn't make sense, pick length > 32 would consume
+        // too much gas. Also realistically, lottos usually pick 5-8 numbers.
+        if (initConfig.pickLength == 0 || initConfig.pickLength > 32) {
             revert InvalidPickLength(initConfig.pickLength);
         }
         pickLength = initConfig.pickLength;

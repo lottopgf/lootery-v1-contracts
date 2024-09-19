@@ -162,6 +162,15 @@ describe('Lootery', () => {
             ).to.not.be.reverted
         })
 
+        it('should revert if pickLength > 32', async () => {
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    pickLength: 33,
+                }),
+            ).to.be.revertedWithCustomError(lotto, 'InvalidPickLength')
+        })
+
         it('should revert if gamePeriod < 10 minutes', async () => {
             await expect(
                 lotto.init({
