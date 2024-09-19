@@ -79,7 +79,7 @@ contract Lootery is
     /// @notice Ticket SVG renderer
     address public ticketSVGRenderer;
     /// @notice Callback gas limit
-    uint256 public callbackGasLimit;
+    uint256 public callbackGasLimit = 500_000;
 
     /// @dev Total supply of tokens/tickets, also used to determine next tokenId
     uint256 public totalSupply;
