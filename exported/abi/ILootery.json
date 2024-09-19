@@ -431,6 +431,19 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newCallbackGasLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "CallbackGasLimitSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "uint256",
         "name": "tokenId",

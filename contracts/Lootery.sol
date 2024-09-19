@@ -78,6 +78,8 @@ contract Lootery is
     uint256 public seedJackpotMinValue;
     /// @notice Ticket SVG renderer
     address public ticketSVGRenderer;
+    /// @notice Callback gas limit
+    uint256 public callbackGasLimit;
 
     /// @dev Total supply of tokens/tickets, also used to determine next tokenId
     uint256 public totalSupply;
@@ -195,6 +197,15 @@ contract Lootery is
             startedAt: uint64(block.timestamp),
             winningPickId: 0
         });
+    }
+
+    /// @notice Set the callback gas limit
+    /// @param newCallbackGasLimit New callback gas limit
+    function setCallbackGasLimit(
+        uint256 newCallbackGasLimit
+    ) external onlyOwner {
+        callbackGasLimit = newCallbackGasLimit;
+        emit CallbackGasLimitSet(newCallbackGasLimit);
     }
 
     /// @notice Get all beneficiaries (shouldn't be such a huge list)
@@ -412,7 +423,7 @@ contract Lootery is
             // Assert that we have enough in operational funds so as to not eat
             // into jackpots or whatever else.
             uint256 requestPrice = IAnyrand(randomiser).getRequestPrice(
-                500_000 /** TODO: Really need to make this configurable */
+                callbackGasLimit
             );
             if (msg.value > requestPrice) {
                 // Refund excess to caller, if any
@@ -435,7 +446,7 @@ contract Lootery is
             // slither-disable-next-line reentrancy-eth,arbitrary-send-eth
             uint256 requestId = IAnyrand(randomiser).requestRandomness{
                 value: requestPrice
-            }(block.timestamp + 30, 500_000);
+            }(block.timestamp + 30, callbackGasLimit);
             if (requestId > type(uint208).max) {
                 revert RequestIdOverflow(requestId);
             }
