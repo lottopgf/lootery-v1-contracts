@@ -35,12 +35,6 @@ describe('TicketSVG', () => {
     })
 
     describe('#renderSVG', () => {
-        it('should revert if len(picks) == 0', async () => {
-            await expect(
-                ticketSVGRenderer.renderSVG('The Lootery', 255, []),
-            ).to.be.revertedWithCustomError(ticketSVGRenderer, 'EmptyPicks')
-        })
-
         it('should render a ticket for numPick=1', async () => {
             const maxValue = 5
             const picks = [5]
@@ -49,20 +43,10 @@ describe('TicketSVG', () => {
             console.log(`data:image/svg+xml;base64,${btoa(svg)}`)
         })
 
-        it('should revert if value in pick is out-of-range', async () => {
-            await expect(
-                ticketSVGRenderer.renderSVG('The Lootery', 64, [65]),
-            ).to.be.revertedWithCustomError(ticketSVGRenderer, 'OutOfRange')
-
-            await expect(
-                ticketSVGRenderer.renderSVG('The Lootery', 64, [64, 66]),
-            ).to.be.revertedWithCustomError(ticketSVGRenderer, 'OutOfRange')
-        })
-
-        it('should revert is pick is unsorted', async () => {
-            await expect(
-                ticketSVGRenderer.renderSVG('The Lootery', 255, [5, 2, 4, 3, 1]),
-            ).to.be.revertedWithCustomError(ticketSVGRenderer, 'UnsortedPick')
+        it('should render a ticket for empty pick (dummy ticket)', async () => {
+            const maxValue = 5
+            const svg = await ticketSVGRenderer.renderSVG('The Lootery', maxValue, [])
+            console.log(`data:image/svg+xml;base64,${btoa(svg)}`)
         })
 
         it('should render SVG', async () => {

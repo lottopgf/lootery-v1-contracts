@@ -101,6 +101,40 @@ contract EchidnaLootery {
         lootery.seedJackpot(value);
     }
 
+    function ownerPick(uint256 numTickets, uint256 seed) external {
+        numTickets = numTickets % 20; // max 20 tix
+        lastTicketSeed = seed;
+
+        ///////////////////////////////////////////////////////////////////////
+        /// Initial state /////////////////////////////////////////////////////
+        uint256 totalSupply0 = lootery.totalSupply();
+        uint256 jackpot0 = lootery.jackpot();
+        uint256 accruedCommunityFees0 = lootery.accruedCommunityFees();
+        ///////////////////////////////////////////////////////////////////////
+
+        ILootery.Ticket[] memory tickets = new ILootery.Ticket[](numTickets);
+        for (uint256 i = 0; i < numTickets; i++) {
+            lastTicketSeed = uint256(
+                keccak256(abi.encodePacked(lastTicketSeed))
+            );
+            bool isEmptyPick = lastTicketSeed % 2 == 0;
+            tickets[i] = ILootery.Ticket({
+                whomst: msg.sender,
+                pick: isEmptyPick
+                    ? new uint8[](0)
+                    : lootery.computeWinningPick(lastTicketSeed)
+            });
+        }
+        lootery.ownerPick(tickets);
+
+        ///////////////////////////////////////////////////////////////////////
+        /// Postconditions ////////////////////////////////////////////////////
+        assert(lootery.totalSupply() == totalSupply0 + numTickets);
+        assert(lootery.jackpot() == jackpot0);
+        assert(lootery.accruedCommunityFees() == accruedCommunityFees0);
+        ///////////////////////////////////////////////////////////////////////
+    }
+
     function purchase(uint256 numTickets, uint256 seed) external {
         numTickets = numTickets % 20; // max 20 tix
         lastTicketSeed = seed;
@@ -117,9 +151,12 @@ contract EchidnaLootery {
             lastTicketSeed = uint256(
                 keccak256(abi.encodePacked(lastTicketSeed))
             );
+            bool isEmptyPick = lastTicketSeed % 2 == 0;
             tickets[i] = ILootery.Ticket({
                 whomst: msg.sender,
-                pick: lootery.computeWinningPick(lastTicketSeed)
+                pick: isEmptyPick
+                    ? new uint8[](0)
+                    : lootery.computeWinningPick(lastTicketSeed)
             });
         }
         // TODO: fuzz beneficiaries

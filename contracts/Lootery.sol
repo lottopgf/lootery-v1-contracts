@@ -78,6 +78,8 @@ contract Lootery is
     uint256 public seedJackpotMinValue;
     /// @notice Ticket SVG renderer
     address public ticketSVGRenderer;
+    /// @notice Callback gas limit
+    uint256 public callbackGasLimit = 500_000;
 
     /// @dev Total supply of tokens/tickets, also used to determine next tokenId
     uint256 public totalSupply;
@@ -136,10 +138,18 @@ contract Lootery is
 
         factory = msg.sender;
 
-        if (initConfig.pickLength == 0) {
+        // Pick length of 0 doesn't make sense, pick length > 32 would consume
+        // too much gas. Also realistically, lottos usually pick 5-8 numbers.
+        if (initConfig.pickLength == 0 || initConfig.pickLength > 32) {
             revert InvalidPickLength(initConfig.pickLength);
         }
         pickLength = initConfig.pickLength;
+
+        // If pick length > max ball value, then it's impossible to even
+        // purchase tickets. This is a configuration error.
+        if (initConfig.pickLength > initConfig.maxBallValue) {
+            revert InvalidMaxBallValue(initConfig.maxBallValue);
+        }
         maxBallValue = initConfig.maxBallValue;
 
         if (initConfig.gamePeriod < 10 minutes) {
@@ -187,6 +197,15 @@ contract Lootery is
             startedAt: uint64(block.timestamp),
             winningPickId: 0
         });
+    }
+
+    /// @notice Set the callback gas limit
+    /// @param newCallbackGasLimit New callback gas limit
+    function setCallbackGasLimit(
+        uint256 newCallbackGasLimit
+    ) external onlyOwner {
+        callbackGasLimit = newCallbackGasLimit;
+        emit CallbackGasLimitSet(newCallbackGasLimit);
     }
 
     /// @notice Get all beneficiaries (shouldn't be such a huge list)
@@ -281,17 +300,21 @@ contract Lootery is
             address whomst = tickets[t].whomst;
             uint8[] memory pick = tickets[t].pick;
 
-            if (pick.length != pickLength_) {
+            // Empty pick means this particular player does not wish to receive
+            // an entry to the lottery.
+            if (pick.length != pickLength_ && pick.length != 0) {
                 revert InvalidPickLength(pick.length);
             }
 
-            // Assert balls are ascendingly sorted, with no possibility of duplicates
-            uint8 lastBall;
-            for (uint256 i; i < pickLength_; ++i) {
-                uint8 ball = pick[i];
-                if (ball <= lastBall) revert UnsortedPick(pick);
-                if (ball > maxBallValue_) revert InvalidBallValue(ball);
-                lastBall = ball;
+            if (pick.length != 0) {
+                // Assert balls are ascendingly sorted, with no possibility of duplicates
+                uint8 lastBall;
+                for (uint256 i; i < pickLength_; ++i) {
+                    uint8 ball = pick[i];
+                    if (ball <= lastBall) revert UnsortedPick(pick);
+                    if (ball > maxBallValue_) revert InvalidBallValue(ball);
+                    lastBall = ball;
+                }
             }
 
             // Record picked numbers
@@ -400,7 +423,7 @@ contract Lootery is
             // Assert that we have enough in operational funds so as to not eat
             // into jackpots or whatever else.
             uint256 requestPrice = IAnyrand(randomiser).getRequestPrice(
-                500_000 /** TODO: Really need to make this configurable */
+                callbackGasLimit
             );
             if (msg.value > requestPrice) {
                 // Refund excess to caller, if any
@@ -423,7 +446,7 @@ contract Lootery is
             // slither-disable-next-line reentrancy-eth,arbitrary-send-eth
             uint256 requestId = IAnyrand(randomiser).requestRandomness{
                 value: requestPrice
-            }(block.timestamp + 30, 500_000);
+            }(block.timestamp + 30, callbackGasLimit);
             if (requestId > type(uint208).max) {
                 revert RequestIdOverflow(requestId);
             }

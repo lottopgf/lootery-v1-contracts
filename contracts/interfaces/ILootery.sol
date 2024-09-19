@@ -121,9 +121,11 @@ interface ILootery is IRandomiserCallback, IERC721 {
     event BeneficiaryRemoved(address indexed beneficiary);
     event ExcessRefunded(address indexed to, uint256 value);
     event ProtocolFeePaid(address indexed to, uint256 value);
+    event CallbackGasLimitSet(uint256 newCallbackGasLimit);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidPickLength(uint256 pickLength);
+    error InvalidMaxBallValue(uint256 maxBallValue);
     error InvalidGamePeriod(uint256 gamePeriod);
     error InvalidTicketPrice(uint256 ticketPrice);
     error InvalidFeeShares();

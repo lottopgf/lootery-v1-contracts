@@ -143,6 +143,34 @@ describe('Lootery', () => {
             )
         })
 
+        it('should revert if pickLength > maxBallValue', async () => {
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    maxBallValue: 5,
+                    pickLength: 6,
+                }),
+            ).to.be.revertedWithCustomError(lotto, 'InvalidMaxBallValue')
+
+            // pickLength == maxBallValue is ok (even though every ticket would be a winner)
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    maxBallValue: 6,
+                    pickLength: 6,
+                }),
+            ).to.not.be.reverted
+        })
+
+        it('should revert if pickLength > 32', async () => {
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    pickLength: 33,
+                }),
+            ).to.be.revertedWithCustomError(lotto, 'InvalidPickLength')
+        })
+
         it('should revert if gamePeriod < 10 minutes', async () => {
             await expect(
                 lotto.init({
@@ -416,6 +444,24 @@ describe('Lootery', () => {
             expect(await lotto.ownerOf(1n)).to.equal(bob.address)
             expect(await lotto.ownerOf(2n)).to.equal(alice.address)
             expect(await lotto.ownerOf(3n)).to.equal(bob.address)
+        })
+
+        it('should allow an empty pick to mint dummy tickets', async () => {
+            // A player should be able to purchase a ticket specifying an empty pick,
+            // which means that they only wish to donate and not participate in the lottery.
+            await lotto.setGameState(GameState.Purchase)
+            const purchaseTx = lotto.pickTickets([
+                { whomst: alice.address, pick: [] },
+                { whomst: bob.address, pick: [] },
+            ])
+            await expect(purchaseTx)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, alice.address, 1n, [])
+            await expect(purchaseTx)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, bob.address, 2n, [])
+            expect(await lotto.ownerOf(1n)).to.equal(alice.address)
+            expect(await lotto.ownerOf(2n)).to.equal(bob.address)
         })
 
         it('should revert if ticket has invalid pick length', async () => {
@@ -1423,6 +1469,31 @@ describe('Lootery', () => {
             await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             const tokenUri = await lotto.tokenURI(1)
             expect(tokenUri.startsWith('data:application/json;base64,')).to.eq(true)
+        })
+    })
+
+    describe('#setCallbackGasLimit', () => {
+        it('should set callback gas limit if called by owner', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                factory,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await expect(lotto.setCallbackGasLimit(1_000_000))
+                .to.emit(lotto, 'CallbackGasLimitSet')
+                .withArgs(1_000_000)
+            expect(await lotto.callbackGasLimit()).to.eq(1_000_000)
+        })
+
+        it('should revert if not called by owner', async () => {
+            const { lotto } = await deployLotto({
+                deployer,
+                factory,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            })
+            await expect(lotto.connect(alice).setCallbackGasLimit(1_000_000)).to.be.reverted
         })
     })
 })
