@@ -124,6 +124,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidPickLength(uint256 pickLength);
+    error InvalidMaxBallValue(uint256 maxBallValue);
     error InvalidGamePeriod(uint256 gamePeriod);
     error InvalidTicketPrice(uint256 ticketPrice);
     error InvalidFeeShares();

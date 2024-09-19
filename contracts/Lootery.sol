@@ -140,6 +140,12 @@ contract Lootery is
             revert InvalidPickLength(initConfig.pickLength);
         }
         pickLength = initConfig.pickLength;
+
+        // If pick length > max ball value, then it's impossible to even
+        // purchase tickets. This is a configuration error.
+        if (initConfig.pickLength > initConfig.maxBallValue) {
+            revert InvalidMaxBallValue(initConfig.maxBallValue);
+        }
         maxBallValue = initConfig.maxBallValue;
 
         if (initConfig.gamePeriod < 10 minutes) {

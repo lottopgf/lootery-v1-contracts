@@ -260,6 +260,17 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "maxBallValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "InvalidMaxBallValue",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "pickLength",
         "type": "uint256"
       }

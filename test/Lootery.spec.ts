@@ -143,6 +143,25 @@ describe('Lootery', () => {
             )
         })
 
+        it('should revert if pickLength > maxBallValue', async () => {
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    maxBallValue: 5,
+                    pickLength: 6,
+                }),
+            ).to.be.revertedWithCustomError(lotto, 'InvalidMaxBallValue')
+
+            // pickLength == maxBallValue is ok (even though every ticket would be a winner)
+            await expect(
+                lotto.init({
+                    ...validConfig,
+                    maxBallValue: 6,
+                    pickLength: 6,
+                }),
+            ).to.not.be.reverted
+        })
+
         it('should revert if gamePeriod < 10 minutes', async () => {
             await expect(
                 lotto.init({
