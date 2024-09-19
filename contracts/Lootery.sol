@@ -281,17 +281,21 @@ contract Lootery is
             address whomst = tickets[t].whomst;
             uint8[] memory pick = tickets[t].pick;
 
-            if (pick.length != pickLength_) {
+            // Empty pick means this particular player does not wish to receive
+            // an entry to the lottery.
+            if (pick.length != pickLength_ && pick.length != 0) {
                 revert InvalidPickLength(pick.length);
             }
 
-            // Assert balls are ascendingly sorted, with no possibility of duplicates
-            uint8 lastBall;
-            for (uint256 i; i < pickLength_; ++i) {
-                uint8 ball = pick[i];
-                if (ball <= lastBall) revert UnsortedPick(pick);
-                if (ball > maxBallValue_) revert InvalidBallValue(ball);
-                lastBall = ball;
+            if (pick.length != 0) {
+                // Assert balls are ascendingly sorted, with no possibility of duplicates
+                uint8 lastBall;
+                for (uint256 i; i < pickLength_; ++i) {
+                    uint8 ball = pick[i];
+                    if (ball <= lastBall) revert UnsortedPick(pick);
+                    if (ball > maxBallValue_) revert InvalidBallValue(ball);
+                    lastBall = ball;
+                }
             }
 
             // Record picked numbers

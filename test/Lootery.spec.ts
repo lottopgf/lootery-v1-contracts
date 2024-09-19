@@ -418,6 +418,24 @@ describe('Lootery', () => {
             expect(await lotto.ownerOf(3n)).to.equal(bob.address)
         })
 
+        it('should allow an empty pick to mint dummy tickets', async () => {
+            // A player should be able to purchase a ticket specifying an empty pick,
+            // which means that they only wish to donate and not participate in the lottery.
+            await lotto.setGameState(GameState.Purchase)
+            const purchaseTx = lotto.pickTickets([
+                { whomst: alice.address, pick: [] },
+                { whomst: bob.address, pick: [] },
+            ])
+            await expect(purchaseTx)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, alice.address, 1n, [])
+            await expect(purchaseTx)
+                .to.emit(lotto, 'TicketPurchased')
+                .withArgs(0, bob.address, 2n, [])
+            expect(await lotto.ownerOf(1n)).to.equal(alice.address)
+            expect(await lotto.ownerOf(2n)).to.equal(bob.address)
+        })
+
         it('should revert if ticket has invalid pick length', async () => {
             await lotto.setGameState(GameState.Purchase)
             await expect(lotto.pickTickets([{ whomst: bob.address, pick: [1, 2, 3, 4, 5, 6] }]))
