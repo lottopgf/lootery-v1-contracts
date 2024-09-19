@@ -27,15 +27,6 @@ contract TicketSVGRenderer is ITicketSVGRenderer, ERC165 {
         uint8 maxPick,
         uint8[] memory pick
     ) public pure returns (string memory) {
-        if (pick.length == 0) revert EmptyPicks();
-        if (pick[0] > maxPick) revert OutOfRange(pick[0], maxPick);
-        if (pick.length > 1) {
-            for (uint256 i = 1; i < pick.length; ++i) {
-                if (pick[i - 1] >= pick[i]) revert UnsortedPick(pick);
-                if (pick[i] > maxPick) revert OutOfRange(pick[i], maxPick);
-            }
-        }
-
         uint256 rows = (maxPick / NUMBERS_PER_ROW) +
             (maxPick % NUMBERS_PER_ROW == 0 ? 0 : 1);
         uint256 positionY = 75;
