@@ -1,6 +1,6 @@
 {
   "name": "lootery",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "description": "Run your own onchain lottery",
   "scripts": {
     "deploy:gnosis": "yarn hardhat --config hardhat.config.gnosis.ts --network gnosis run scripts/deploy.ts",
