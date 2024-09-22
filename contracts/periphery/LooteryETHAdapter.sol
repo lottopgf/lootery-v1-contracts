@@ -4,6 +4,7 @@ pragma solidity 0.8.27;
 import {Lootery} from "../Lootery.sol";
 import {IWETH9} from "../interfaces/IWETH9.sol";
 
+/// @custom:version 1.5.0
 contract LooteryETHAdapter {
     IWETH9 public immutable wrappedToken;
 

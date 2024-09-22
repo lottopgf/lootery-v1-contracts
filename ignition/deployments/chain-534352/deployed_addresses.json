@@ -6,5 +6,6 @@
   "LooteryETHAdapter#LooteryETHAdapter": "0xeF25bdE35653f89229fe37b9F7d82484B8c47e4F",
   "LooteryImplV1_3_0#Lootery": "0xA5Dc4C6970eAEdfE1bb9a8bb089f773fe1E39482",
   "LooteryImplV1_5_0#Lootery": "0xE5990E5c700538CD150F1e681AFDD4628daB8943",
-  "LooteryFactoryImplV1_5_0#LooteryFactory": "0xb639A175FC4216d35Eb59DB89b9B47d5711eaB90"
+  "LooteryFactoryImplV1_5_0#LooteryFactory": "0xb639A175FC4216d35Eb59DB89b9B47d5711eaB90",
+  "LooteryETHAdapterV1_5_0#LooteryETHAdapter": "0xB95C75a28019be64e62863E2C9dc48D0dea8b5cc"
 }

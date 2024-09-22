@@ -7,6 +7,7 @@
     "deploy:basetestnet": "yarn hardhat --config hardhat.config.base.ts --network baseSepolia run scripts/deploy.ts",
     "deploy:base": "yarn hardhat --config hardhat.config.base.ts --network base run scripts/deploy.ts",
     "deploy:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deploy.ts",
+    "deploy-eth-adapter:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deployLooteryETHAdapter.ts",
     "upgrade-lootery:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deployAndUpgradeLootery.ts",
     "upgrade-factory:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deployAndUpgradeLooteryFactory.ts",
     "deploy:degen": "yarn hardhat --config hardhat.config.degen.ts --network degen run scripts/deploy.ts",
