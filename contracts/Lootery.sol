@@ -17,7 +17,7 @@ import {ITicketSVGRenderer} from "./interfaces/ITicketSVGRenderer.sol";
 import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 
 /// @title Lootery
-/// @custom:version 1.4.0
+/// @custom:version 1.5.0
 /// @notice Lootery is a number lottery contract where players can pick a
 ///     configurable set of numbers/balls per ticket, similar to IRL lottos
 ///     such as Powerball or EuroMillions. At the end of every round, a keeper
