@@ -151,6 +151,7 @@ interface ILootery is IRandomiserCallback, IERC721 {
     error UnknownBeneficiary(address beneficiary);
     error EmptyDisplayName();
     error NoTicketsSpecified();
+    error NoRandomnessRequestInFlight();
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

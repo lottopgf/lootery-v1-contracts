@@ -195,6 +195,11 @@
   },
   {
     "inputs": [],
+    "name": "NoRandomnessRequestInFlight",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NoTicketsSpecified",
     "type": "error"
   },

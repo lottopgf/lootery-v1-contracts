@@ -366,6 +366,48 @@ describe('Lootery e2e', () => {
         }
     })
 
+    it('should be able to force redraw if draw is pending for too long', async () => {
+        const gamePeriod = 1n * 60n * 60n
+        async function deploy() {
+            return deployLotto({
+                deployer,
+                factory,
+                gamePeriod,
+                prizeToken: testERC20,
+            })
+        }
+        const { lotto, mockRandomiser } = await loadFixture(deploy)
+
+        // Buy some tickets
+        await testERC20.mint(deployer, parseEther('10'))
+        await testERC20.approve(lotto, parseEther('10'))
+        await purchaseTicket(lotto, bob.address, [1, 2, 3, 4, 5])
+
+        // Draw but don't fulfill
+        await time.increase(gamePeriod)
+        await setBalance(await lotto.getAddress(), parseEther('0.1'))
+        await lotto.draw()
+        const { requestId: requestId0 } = await lotto.randomnessRequest()
+        // We should not be able to call forceRedraw yet
+        await expect(lotto.forceRedraw()).to.be.revertedWithCustomError(lotto, 'WaitLonger')
+
+        // Fast forward, then try to forceRedraw
+        await time.increase(61 * 60) // ~1h
+        await expect(lotto.forceRedraw()).to.emit(lotto, 'RandomnessRequested')
+        const { requestId: requestId1 } = await lotto.randomnessRequest()
+        expect(requestId1).to.not.eq(requestId0)
+
+        // If we try to call forceRedraw immediately again, it should revert again
+        await expect(lotto.forceRedraw()).to.be.revertedWithCustomError(lotto, 'WaitLonger')
+
+        // Make sure we can fulfill and continue the game as normal
+        // Fulfill w/ mock randomiser
+        await expect(mockRandomiser.fulfillRandomWords(requestId1, [6942069420n])).to.emit(
+            lotto,
+            'GameFinalised',
+        )
+    })
+
     // The gas refund has been removed, since it's hard to test and not future proof
     it.skip('should refund gas to draw() keeper', async () => {
         async function deploy() {
