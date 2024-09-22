@@ -88,6 +88,22 @@ describe('Lootery', () => {
         }
     })
 
+    describe('#typeAndVersion', () => {
+        it('should return the correct type and version', async () => {
+            ;({ lotto } = await deployLotto({
+                deployer,
+                factory,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+            const [type, version] = await lotto
+                .typeAndVersion()
+                .then((version) => version.split(' '))
+            expect(type).to.equal('Lootery')
+            expect(version).to.match(/^\d+\.\d+\.\d+$/)
+        })
+    })
+
     describe('#receive', () => {
         it('should receive ETH', async () => {
             ;({ lotto } = await deployLotto({

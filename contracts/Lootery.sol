@@ -17,7 +17,6 @@ import {ITicketSVGRenderer} from "./interfaces/ITicketSVGRenderer.sol";
 import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 
 /// @title Lootery
-/// @custom:version 1.7.0
 /// @notice Lootery is a number lottery contract where players can pick a
 ///     configurable set of numbers/balls per ticket, similar to IRL lottos
 ///     such as Powerball or EuroMillions. At the end of every round, a keeper
@@ -115,6 +114,10 @@ contract Lootery is
 
     constructor() {
         _disableInitializers();
+    }
+
+    function typeAndVersion() external pure returns (string memory) {
+        return "Lootery 1.8.0";
     }
 
     /// @dev The contract should be able to receive Ether to pay for VRF.

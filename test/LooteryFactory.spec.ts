@@ -36,6 +36,12 @@ describe('LooteryFactory', () => {
         })
     })
 
+    it('should return the correct type and version', async () => {
+        const [type, version] = await factory.typeAndVersion().then((version) => version.split(' '))
+        expect(type).to.equal('LooteryFactory')
+        expect(version).to.match(/^\d+\.\d+\.\d+$/)
+    })
+
     it('should revert on double-initialisation', async () => {
         await expect(
             factory.init(

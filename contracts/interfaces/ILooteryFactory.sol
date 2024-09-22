@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.27;
 
+import {ITypeAndVersion} from "./ITypeAndVersion.sol";
+
 /// @title ILooteryFactory
 /// @custom:version 1.2.0
 /// @notice Launch a lotto to support your charity or public good.
-interface ILooteryFactory {
+interface ILooteryFactory is ITypeAndVersion {
     event LooteryLaunched(
         address indexed looteryProxy,
         address indexed looteryImplementation,

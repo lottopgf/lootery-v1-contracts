@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
+import {ITypeAndVersion} from "./ITypeAndVersion.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IRandomiserCallback} from "./IRandomiserCallback.sol";
 
 /// @title ILootery
 /// @custom:version 1.3.0
 /// @notice Lootery contract interface
-interface ILootery is IRandomiserCallback, IERC721 {
+interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     /// @notice Initial configuration of Lootery
     struct InitConfig {
         address owner;

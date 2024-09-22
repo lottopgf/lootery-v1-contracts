@@ -9,8 +9,7 @@ import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 import {ILootery} from "./interfaces/ILootery.sol";
 
 /// @title LooteryFactory
-/// @custom:version 1.5.0
-/// @notice Launch a lotto to support your charity or public good.
+/// @notice Launch a lotto to support your charity or public good!
 contract LooteryFactory is
     ILooteryFactory,
     UUPSUpgradeable,
@@ -36,6 +35,10 @@ contract LooteryFactory is
 
     constructor() {
         _disableInitializers();
+    }
+
+    function typeAndVersion() external pure returns (string memory) {
+        return "LooteryFactory 1.6.0";
     }
 
     /// @notice Initialisoooooor!!! NB: Caller becomes admin.
