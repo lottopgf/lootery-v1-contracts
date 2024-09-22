@@ -1,6 +1,6 @@
 import { ethers, ignition, run } from 'hardhat'
 import { LooteryFactory__factory } from '../typechain-types'
-import LooteryFactoryImplV1_5_0 from '../ignition/modules/LooteryFactoryImplV1_5_0'
+import LooteryFactoryImplV1_6_0 from '../ignition/modules/LooteryFactoryImplV1_6_0'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import yesno from 'yesno'
@@ -24,7 +24,7 @@ async function main() {
         deployer,
     ).waitForDeployment()
     console.log(
-        `\x1B[33;1mUsing LooteryFactory deployed at: ${await looteryFactoryProxy.getAddress()}\x1B[0m]`,
+        `\x1B[33;1mUsing LooteryFactory deployed at: ${await looteryFactoryProxy.getAddress()}\x1B[0m`,
     )
     console.log(`\x1B[33;1mUsing signer: ${deployer.address}\x1B[0m`)
     const shouldContinue = await yesno({
@@ -34,7 +34,7 @@ async function main() {
         console.log('\x1B[31;1mAborted\x1B[0m')
         process.exit(0)
     }
-    const { looteryFactoryImpl } = await ignition.deploy(LooteryFactoryImplV1_5_0, {})
+    const { looteryFactoryImpl } = await ignition.deploy(LooteryFactoryImplV1_6_0, {})
     console.log(
         `Deployed LooteryFactory implementation at: ${await looteryFactoryImpl.getAddress()}`,
     )
