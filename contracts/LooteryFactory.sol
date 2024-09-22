@@ -9,7 +9,7 @@ import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 import {ILootery} from "./interfaces/ILootery.sol";
 
 /// @title LooteryFactory
-/// @custom:version 1.3.0
+/// @custom:version 1.5.0
 /// @notice Launch a lotto to support your charity or public good.
 contract LooteryFactory is
     ILooteryFactory,

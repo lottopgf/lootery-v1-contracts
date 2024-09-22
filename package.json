@@ -8,6 +8,7 @@
     "deploy:base": "yarn hardhat --config hardhat.config.base.ts --network base run scripts/deploy.ts",
     "deploy:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deploy.ts",
     "upgrade-lootery:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deployAndUpgradeLootery.ts",
+    "upgrade-factory:scroll": "yarn hardhat --config hardhat.config.scroll.ts --network scroll run scripts/deployAndUpgradeLooteryFactory.ts",
     "deploy:degen": "yarn hardhat --config hardhat.config.degen.ts --network degen run scripts/deploy.ts",
     "build": "yarn hardhat compile",
     "format:check": "yarn prettier --check .",
