@@ -340,6 +340,11 @@
   },
   {
     "inputs": [],
+    "name": "NoRandomnessRequestInFlight",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NoTicketsSpecified",
     "type": "error"
   },
@@ -1237,6 +1242,13 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "forceRedraw",
+    "outputs": [],
+    "stateMutability": "payable",
     "type": "function"
   },
   {

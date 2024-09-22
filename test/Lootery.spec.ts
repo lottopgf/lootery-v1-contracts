@@ -779,6 +779,65 @@ describe('Lootery', () => {
         })
     })
 
+    describe('#forceRedraw', () => {
+        beforeEach(async () => {
+            ;({ lotto, mockRandomiser } = await deployLotto({
+                deployer,
+                factory,
+                gamePeriod: 3600n,
+                prizeToken: testERC20,
+            }))
+        })
+
+        it('should revert if called in any state other than DrawPending', async () => {
+            const allOtherStates = allStates.filter((state) => state !== GameState.DrawPending)
+            for (const state of allOtherStates) {
+                await lotto.setGameState(state)
+                await expect(lotto.forceRedraw())
+                    .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
+                    .withArgs(state)
+            }
+        })
+
+        it('should revert if there is no randomness request in flight', async () => {
+            await lotto.setGameState(GameState.DrawPending)
+            await expect(lotto.forceRedraw()).to.be.revertedWithCustomError(
+                lotto,
+                'NoRandomnessRequestInFlight',
+            )
+        })
+
+        it('should revert if the request is not old enough', async () => {
+            await lotto.setGameState(GameState.DrawPending)
+            const timestamp = await ethers.provider
+                .getBlock('latest')
+                .then((block) => block!.timestamp)
+            await lotto.setRandomnessRequest({
+                requestId: 1n,
+                timestamp,
+            })
+            await expect(lotto.forceRedraw()).to.be.revertedWithCustomError(lotto, 'WaitLonger')
+        })
+
+        it('should re-request randomness if the request is old enough', async () => {
+            await lotto.setGameState(GameState.DrawPending)
+            const timestamp = await ethers.provider
+                .getBlock('latest')
+                .then((block) => block!.timestamp)
+            await lotto.setRandomnessRequest({
+                requestId: 1n,
+                timestamp,
+            })
+            await time.increase(61 * 60) // 61 mins
+            const requestPrice = await lotto.getRequestPrice()
+            await expect(
+                lotto.forceRedraw({
+                    value: requestPrice * 2n,
+                }),
+            ).to.emit(lotto, 'RandomnessRequested')
+        })
+    })
+
     describe('#receiveRandomWords', () => {
         let reqId = 1n
         beforeEach(async () => {

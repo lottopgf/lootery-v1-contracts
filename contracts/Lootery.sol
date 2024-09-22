@@ -423,45 +423,62 @@ contract Lootery is
             _setupNextGame();
         } else {
             // Case #2: Tickets were sold
-            currentGame.state = GameState.DrawPending;
+            _requestRandomness();
+        }
+    }
 
-            // Assert that we have enough in operational funds so as to not eat
-            // into jackpots or whatever else.
-            uint256 requestPrice = getRequestPrice();
-            if (msg.value > requestPrice) {
-                // Refund excess to caller, if any
-                uint256 excess = msg.value - requestPrice;
-                (bool success, bytes memory data) = msg.sender.call{
-                    value: excess
-                }("");
-                if (!success) {
-                    revert TransferFailure(msg.sender, excess, data);
-                }
-                emit ExcessRefunded(msg.sender, excess);
+    /// @notice This is an escape hatch to re-request randomness in case there
+    ///     is some issue with the VRF fulfiller.
+    function forceRedraw() external payable onlyInState(GameState.DrawPending) {
+        RandomnessRequest memory request = randomnessRequest;
+        if (request.requestId == 0) {
+            revert NoRandomnessRequestInFlight();
+        }
+
+        // There is a pending request present: check if it's been waiting for a while
+        if (block.timestamp >= request.timestamp + 1 hours) {
+            // 30 minutes have passed since the request was made
+            _requestRandomness();
+        } else {
+            revert WaitLonger(request.timestamp + 1 hours);
+        }
+    }
+
+    /// @notice Request randomness from VRF
+    function _requestRandomness() internal {
+        currentGame.state = GameState.DrawPending;
+
+        uint256 requestPrice = getRequestPrice();
+        if (msg.value > requestPrice) {
+            // Refund excess to caller, if any
+            uint256 excess = msg.value - requestPrice;
+            (bool success, bytes memory data) = msg.sender.call{value: excess}(
+                ""
+            );
+            if (!success) {
+                revert TransferFailure(msg.sender, excess, data);
             }
-            if (address(this).balance < requestPrice) {
-                revert InsufficientOperationalFunds(
-                    address(this).balance,
-                    requestPrice
-                );
-            }
-            // VRF call to trusted coordinator
-            // slither-disable-next-line reentrancy-eth,arbitrary-send-eth
-            uint256 requestId = IAnyrand(randomiser).requestRandomness{
-                value: requestPrice
-            }(block.timestamp + 30, callbackGasLimit);
-            if (requestId > type(uint208).max) {
-                revert RequestIdOverflow(requestId);
-            }
-            randomnessRequest = RandomnessRequest({
-                requestId: uint208(requestId),
-                timestamp: uint48(block.timestamp)
-            });
-            emit RandomnessRequested(
-                uint208(requestId),
-                uint48(block.timestamp)
+            emit ExcessRefunded(msg.sender, excess);
+        }
+        if (address(this).balance < requestPrice) {
+            revert InsufficientOperationalFunds(
+                address(this).balance,
+                requestPrice
             );
         }
+        // VRF call to trusted coordinator
+        // slither-disable-next-line reentrancy-eth,arbitrary-send-eth
+        uint256 requestId = IAnyrand(randomiser).requestRandomness{
+            value: requestPrice
+        }(block.timestamp + 30, callbackGasLimit);
+        if (requestId > type(uint208).max) {
+            revert RequestIdOverflow(requestId);
+        }
+        randomnessRequest = RandomnessRequest({
+            requestId: uint208(requestId),
+            timestamp: uint48(block.timestamp)
+        });
+        emit RandomnessRequested(uint208(requestId), uint48(block.timestamp));
     }
 
     /// @notice Callback for VRF fulfiller.
