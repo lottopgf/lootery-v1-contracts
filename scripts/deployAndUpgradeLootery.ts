@@ -1,6 +1,6 @@
 import { ethers, ignition, run } from 'hardhat'
 import { LooteryFactory__factory } from '../typechain-types'
-import LooteryImplModuleV1_5_0 from '../ignition/modules/LooteryImplV1_5_0'
+import LooteryImplModuleV1_6_0 from '../ignition/modules/LooteryImplV1_6_0'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import yesno from 'yesno'
@@ -35,7 +35,7 @@ async function main() {
         console.log('\x1B[31;1mAborted\x1B[0m')
         process.exit(0)
     }
-    const { looteryImpl } = await ignition.deploy(LooteryImplModuleV1_5_0, {})
+    const { looteryImpl } = await ignition.deploy(LooteryImplModuleV1_6_0, {})
     console.log(`Deployed Lootery implementation at: ${await looteryImpl.getAddress()}`)
     if ((await looteryImpl.getAddress()) !== (await looteryFactoryProxy.getLooteryMasterCopy())) {
         const tx = await looteryFactoryProxy.setLooteryMasterCopy(await looteryImpl.getAddress())

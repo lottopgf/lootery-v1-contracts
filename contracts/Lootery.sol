@@ -17,7 +17,7 @@ import {ITicketSVGRenderer} from "./interfaces/ITicketSVGRenderer.sol";
 import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
 
 /// @title Lootery
-/// @custom:version 1.5.0
+/// @custom:version 1.6.0
 /// @notice Lootery is a number lottery contract where players can pick a
 ///     configurable set of numbers/balls per ticket, similar to IRL lottos
 ///     such as Powerball or EuroMillions. At the end of every round, a keeper
@@ -400,6 +400,11 @@ contract Lootery is
         _pickTickets(tickets);
     }
 
+    /// @notice Helper to get the request price for VRF call
+    function getRequestPrice() public view returns (uint256) {
+        return IAnyrand(randomiser).getRequestPrice(callbackGasLimit);
+    }
+
     /// @notice Draw numbers, picking potential jackpot winners and ending the
     ///     current game. This should be automated by a keeper.
     function draw() external payable onlyInState(GameState.Purchase) {
@@ -422,9 +427,7 @@ contract Lootery is
 
             // Assert that we have enough in operational funds so as to not eat
             // into jackpots or whatever else.
-            uint256 requestPrice = IAnyrand(randomiser).getRequestPrice(
-                callbackGasLimit
-            );
+            uint256 requestPrice = getRequestPrice();
             if (msg.value > requestPrice) {
                 // Refund excess to caller, if any
                 uint256 excess = msg.value - requestPrice;
