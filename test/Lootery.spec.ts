@@ -124,6 +124,7 @@ describe('Lootery', () => {
             expect(gameData.startedAt).to.eq(
                 await initTx!.getBlock().then((block) => block.timestamp),
             )
+            expect(await lotto.callbackGasLimit()).to.not.equal(0)
         })
 
         it('should revert if called twice', async () => {

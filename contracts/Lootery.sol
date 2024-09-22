@@ -79,7 +79,7 @@ contract Lootery is
     /// @notice Ticket SVG renderer
     address public ticketSVGRenderer;
     /// @notice Callback gas limit
-    uint256 public callbackGasLimit = 500_000;
+    uint256 public callbackGasLimit;
 
     /// @dev Total supply of tokens/tickets, also used to determine next tokenId
     uint256 public totalSupply;
@@ -189,6 +189,8 @@ contract Lootery is
         }
 
         _setTicketSVGRenderer(initConfig.ticketSVGRenderer);
+
+        callbackGasLimit = 500_000;
 
         currentGame.state = GameState.Purchase;
         gameData[0] = Game({
