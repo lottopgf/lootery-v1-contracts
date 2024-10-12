@@ -341,12 +341,6 @@ contract Lootery is
         }
     }
 
-    /// @notice Allow owner to pick tickets for free.
-    /// @param tickets Tickets!
-    function ownerPick(Ticket[] calldata tickets) external onlyOwner {
-        _pickTickets(tickets);
-    }
-
     /// @notice Purchase a ticket
     /// @param tickets Tickets! Tickets!
     /// @param beneficiary Beneficiary address to receive community fee share

@@ -1571,31 +1571,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "whomst",
-            "type": "address"
-          },
-          {
-            "internalType": "uint8[]",
-            "name": "pick",
-            "type": "uint8[]"
-          }
-        ],
-        "internalType": "struct ILootery.Ticket[]",
-        "name": "tickets",
-        "type": "tuple[]"
-      }
-    ],
-    "name": "ownerPick",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "pickLength",
     "outputs": [

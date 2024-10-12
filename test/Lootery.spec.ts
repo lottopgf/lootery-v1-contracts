@@ -520,32 +520,6 @@ describe('Lootery', () => {
         })
     })
 
-    describe('#ownerPick', () => {
-        beforeEach(async () => {
-            ;({ lotto } = await deployLotto({
-                deployer,
-                factory,
-                gamePeriod: 3600n,
-                prizeToken: testERC20,
-            }))
-        })
-
-        it('should revert if not called by owner', async () => {
-            await expect(
-                lotto
-                    .connect(bob /** bob's not the owner */)
-                    .ownerPick([{ whomst: bob.address, pick: [1, 2, 3, 4, 5] }]),
-            ).to.be.revertedWithCustomError(lotto, 'OwnableUnauthorizedAccount')
-        })
-
-        it('should mint valid tickets if called by owner', async () => {
-            await expect(lotto.ownerPick([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }]))
-                .to.emit(lotto, 'TicketPurchased')
-                .withArgs(0, alice.address, 1n, [1, 2, 3, 4, 5])
-            expect(await lotto.ownerOf(1n)).to.equal(alice.address)
-        })
-    })
-
     describe('#purchase', () => {
         beforeEach(async () => {
             ;({ lotto } = await deployLotto({
