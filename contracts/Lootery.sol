@@ -429,7 +429,7 @@ contract Lootery is
     ///     is some issue with the VRF fulfiller.
     function forceRedraw() external payable onlyInState(GameState.DrawPending) {
         RandomnessRequest memory request = randomnessRequest;
-        if (request.requestId == 0) {
+        if (request.timestamp == 0) {
             revert NoRandomnessRequestInFlight();
         }
 
