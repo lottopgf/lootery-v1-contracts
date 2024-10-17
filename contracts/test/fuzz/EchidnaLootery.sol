@@ -27,6 +27,7 @@ contract EchidnaLootery {
     mapping(uint256 gameId => uint256 unclaimedPayouts)
         internal recUnclaimedPayouts;
     mapping(uint256 gameId => uint256 jackpot) internal recJackpots;
+    uint256 internal recTotalMinted;
 
     event DebugLog(string msg);
     event AssertionFailed(string reason);
@@ -132,6 +133,7 @@ contract EchidnaLootery {
         ///////////////////////////////////////////////////////////////////////
         /// Postconditions ////////////////////////////////////////////////////
         assert(lootery.totalSupply() == totalSupply0 + numTickets);
+        recTotalMinted += numTickets;
         assert(lootery.jackpot() > jackpot0);
         // *If no beneficiary was passed in*
         assert(lootery.accruedCommunityFees() > accruedCommunityFees0);
@@ -258,23 +260,12 @@ contract EchidnaLootery {
         address tokenOwner = lootery.ownerOf(tokenId);
         uint256 tokenOwnerBalance0 = prizeToken.balanceOf(tokenOwner);
         (uint256 gameId, uint256 pickId) = lootery.purchasedTickets(tokenId);
-        (uint64 ticketsSold, , uint256 winningPickId) = lootery.gameData(
-            gameId
-        );
+        (, , uint256 winningPickId) = lootery.gameData(gameId);
 
         lootery.claimWinnings(tokenId);
 
         ///////////////////////////////////////////////////////////////////////
         /// Postconditions ////////////////////////////////////////////////////
-        bool isBurnt;
-        try lootery.ownerOf(tokenId) {} catch {
-            isBurnt = true;
-        }
-        assertWithMsg(isBurnt, "tokenId not burnt");
-        // Total supply should not change; we don't decrease it during burn
-        // We use `totalSupply()` to increment token IDs
-        assert(lootery.totalSupply() == totalSupply0);
-
         uint256 numWinners = lootery.numWinnersInGame(gameId, winningPickId);
         uint256 tokenOwnerBalance1 = prizeToken.balanceOf(tokenOwner);
         if (winningPickId == pickId) {
@@ -285,21 +276,34 @@ contract EchidnaLootery {
                 tokenOwnerBalance1 - tokenOwnerBalance0 >= minPrizeShare,
                 "winner did not receive jackpot"
             );
+            assert(lootery.totalSupply() == totalSupply0);
         } else {
             if (numWinners == 0 && state == ILootery.GameState.Dead) {
                 // Apocalypse mode, no winner -> claim even share
                 uint256 minPrizeShare = recUnclaimedPayouts[gameId] /
-                    ticketsSold;
+                    recTotalMinted;
                 assertWithMsg(
                     tokenOwnerBalance1 - tokenOwnerBalance0 >= minPrizeShare,
                     "consolation prize not received"
                 );
+
+                // Claiming consolation prize should burn the token
+                bool isBurnt;
+                try lootery.ownerOf(tokenId) {} catch {
+                    isBurnt = true;
+                }
+                assertWithMsg(
+                    isBurnt,
+                    "tokenId not burnt after claiming consolation prize"
+                );
+                assert(lootery.totalSupply() == totalSupply0 - 1);
             } else {
                 // Receive nothing
                 assertWithMsg(
                     tokenOwnerBalance1 == tokenOwnerBalance0,
                     "no prize"
                 );
+                assert(lootery.totalSupply() == totalSupply0);
             }
         }
     }

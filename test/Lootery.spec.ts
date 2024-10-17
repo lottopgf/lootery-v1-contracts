@@ -1034,7 +1034,7 @@ describe('Lootery', () => {
             }
         })
 
-        it('should burn NFT', async () => {
+        it('should not burn NFT after claiming a regular prize', async () => {
             const receiver = ethers.Wallet.createRandom().address
             // With seed=69420, the winning pick is [5,10,41,46,55]
             const winningPick = Array.from(await lotto.computePick(36101364786398240n))
@@ -1042,17 +1042,19 @@ describe('Lootery', () => {
             await expect(lotto.pickTickets([{ whomst: receiver, pick: winningPick }]))
                 .to.emit(lotto, 'Transfer')
                 .withArgs(ethers.ZeroAddress, receiver, tokenId)
+            const jackpot = await lotto.jackpot()
+            expect(jackpot).to.be.gt(0)
             await fastForwardAndDraw(69420n)
 
             expect(await lotto.ownerOf(tokenId)).to.eq(receiver)
-            // Claim winnings => burn NFT
-            await expect(lotto.claimWinnings(tokenId))
-                .to.emit(lotto, 'Transfer')
-                .withArgs(receiver, ethers.ZeroAddress, tokenId)
-            // Burnt <-> no longer owned
-            await expect(lotto.ownerOf(tokenId))
-                .to.be.revertedWithCustomError(lotto, 'ERC721NonexistentToken')
-                .withArgs(tokenId)
+            // Claim winnings
+            const claimTx = lotto.claimWinnings(tokenId)
+            await expect(claimTx).to.emit(lotto, 'WinningsClaimed')
+            await expect(claimTx)
+                .to.emit(prizeToken, 'Transfer')
+                .withArgs(await lotto.getAddress(), receiver, jackpot)
+            // User still owns the NFT
+            expect(await lotto.ownerOf(tokenId)).to.eq(receiver)
         })
 
         it('should revert if trying to claim winnings for nonexistent token', async () => {
@@ -1124,29 +1126,14 @@ describe('Lootery', () => {
                         // rounded-down share.
                         const minJackpotShare = jackpot / BigInt(tickets.length)
                         const claimTx = lotto.claimWinnings(i + 1)
-                        await expect(claimTx).to.emit(lotto, 'ConsolationClaimed')
-                        const logs = await claimTx
-                            .then((tx) => tx.wait())
-                            .then((receipt) => receipt?.logs)
-                        const event = logs
-                            ?.map((log) => {
-                                try {
-                                    return LooteryHarness__factory.createInterface().parseLog(log)
-                                } catch (err) {
-                                    return null
-                                }
-                            })
-                            .find((log) => log?.name === 'ConsolationClaimed')
-                        const [tokenId, gameId, whomst, value] = event!.args as unknown as [
-                            bigint,
-                            bigint,
-                            `0x${string}`,
-                            bigint,
-                        ]
-                        expect(tokenId).to.eq(i + 1)
-                        expect(gameId).to.eq(0)
-                        expect(whomst).to.eq(tickets[i].whomst)
-                        expect(value).to.be.gte(minJackpotShare)
+                        await expect(claimTx)
+                            .to.emit(lotto, 'ConsolationClaimed')
+                            .withArgs(
+                                i + 1,
+                                0,
+                                tickets[i].whomst,
+                                (val: bigint) => val >= minJackpotShare,
+                            )
                         expect(await prizeToken.balanceOf(tickets[i].whomst)).to.be.gte(
                             balanceBefore + minJackpotShare,
                         )
@@ -1180,17 +1167,14 @@ describe('Lootery', () => {
                 .withArgs(3, 0, alice.address, jackpot)
             // Everyone else gets nothing
             await expect(lotto.claimWinnings(1))
-                .to.emit(lotto, 'NoWin')
+                .to.be.revertedWithCustomError(lotto, 'NoWin')
                 .withArgs(computePickId(tickets[0].pick), 36101364786398240n)
             await expect(lotto.claimWinnings(2))
-                .to.emit(lotto, 'NoWin')
+                .to.be.revertedWithCustomError(lotto, 'NoWin')
                 .withArgs(computePickId(tickets[1].pick), 36101364786398240n)
-            // Ensure all the tokens were burnt after claiming, even if the user didn't win
+            // Ensure none of the tokens were burnt
             for (let i = 0; i < tickets.length; i++) {
-                await expect(lotto.ownerOf(i + 1)).to.be.revertedWithCustomError(
-                    lotto,
-                    'ERC721NonexistentToken',
-                )
+                await expect(lotto.ownerOf(i + 1)).to.not.eq(ZeroAddress)
             }
         })
     })

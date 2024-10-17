@@ -104,7 +104,6 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
         address whomst,
         uint256 value
     );
-    event NoWin(uint256 pickId, uint256 winningPickId);
     event DrawSkipped(uint256 indexed gameId);
     event RandomnessRequested(uint208 requestId, uint48 timestamp);
     event Received(address sender, uint256 amount);
@@ -154,6 +153,8 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     error NoTicketsSpecified();
     error NoRandomnessRequestInFlight();
     error PrizeTokenWithdrawalNotAllowed();
+    error AlreadyClaimed(uint256 tokenId);
+    error NoWin(uint256 pickId, uint256 winningPickId);
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

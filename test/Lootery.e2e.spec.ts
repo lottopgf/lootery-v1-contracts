@@ -168,10 +168,10 @@ describe('Lootery e2e', () => {
             .to.emit(lotto, 'WinningsClaimed')
             .withArgs(2, 1, bob.address, jackpot)
         expect(await testERC20.balanceOf(bob.address)).to.eq(balanceBefore + jackpot)
-        await expect(lotto.ownerOf(2)).to.be.revertedWithCustomError(
-            lotto,
-            'ERC721NonexistentToken',
-        )
+        // Postcondition 1: Bob is still the owner of the ticket NFT (not burnt)
+        expect(await lotto.ownerOf(2)).to.eq(bob.address)
+        // Postcondition 2: Bob can no longer claim the winnings with the same ticket
+        await expect(lotto.claimWinnings(2)).to.be.revertedWithCustomError(lotto, 'AlreadyClaimed')
 
         // Withdraw accrued fees
         const accruedFees = await lotto.accruedCommunityFees()
@@ -264,10 +264,6 @@ describe('Lootery e2e', () => {
                 .to.emit(lotto, 'WinningsClaimed')
                 .withArgs(1, 0, bob.address, jackpotShare)
             expect(await testERC20.balanceOf(bob.address)).to.eq(balanceBefore + jackpotShare)
-            await expect(lotto.ownerOf(1)).to.be.revertedWithCustomError(
-                lotto,
-                'ERC721NonexistentToken',
-            )
         }
         {
             // Alice
@@ -276,10 +272,6 @@ describe('Lootery e2e', () => {
                 .to.emit(lotto, 'WinningsClaimed')
                 .withArgs(2, 0, alice.address, jackpotShare)
             expect(await testERC20.balanceOf(alice.address)).to.eq(balanceBefore + jackpotShare)
-            await expect(lotto.ownerOf(2)).to.be.revertedWithCustomError(
-                lotto,
-                'ERC721NonexistentToken',
-            )
         }
     })
 
@@ -426,12 +418,16 @@ describe('Lootery e2e', () => {
             to: await lotto.getAddress(),
             value: parseEther('100.0'),
         })
-        await lotto.ownerPick([
-            {
-                whomst: bob.address,
-                pick: [1, 2, 3, 4, 5],
-            },
-        ])
+        // NB: This shouldn't work but this test is no longer needed
+        await lotto.purchase(
+            [
+                {
+                    whomst: bob.address,
+                    pick: [1, 2, 3, 4, 5],
+                },
+            ],
+            ZeroAddress,
+        )
 
         const balanceBefore = await ethers.provider.getBalance(deployer.address)
         await time.increase(await lotto.gamePeriod())

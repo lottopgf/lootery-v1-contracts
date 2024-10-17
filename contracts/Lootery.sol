@@ -98,8 +98,10 @@ contract Lootery is
     /// @notice Game id => pick identity => tokenIds
     mapping(uint256 gameId => mapping(uint256 id => uint256[]))
         public tokenByPickIdentity;
-    /// @notice Game id => claimed winning tickets
-    mapping(uint256 gameId => uint256[]) public claimedWinningTickets;
+    /// @notice Game id => # of claimed winning tickets
+    mapping(uint256 gameId => uint256) public numClaimedWinningTickets;
+    /// @notice Whether a token id has been used to claim winnings
+    mapping(uint256 tokenId => bool) public isWinningsClaimed;
     /// @notice Accrued community fee share (wei)
     uint256 public accruedCommunityFees;
     /// @notice When true, current game will be the last
@@ -300,7 +302,6 @@ contract Lootery is
         uint256 pickLength_ = pickLength;
         uint256 maxBallValue_ = maxBallValue;
         uint256 startingTokenId = totalSupply + 1;
-        totalSupply += ticketsCount;
         for (uint256 t; t < ticketsCount; ++t) {
             address whomst = tickets[t].whomst;
             uint8[] memory pick = tickets[t].pick;
@@ -337,7 +338,7 @@ contract Lootery is
         // Finally, mint NFTs
         for (uint256 t; t < ticketsCount; ++t) {
             address whomst = tickets[t].whomst;
-            _safeMint(whomst, startingTokenId + t);
+            _safeMint(whomst, startingTokenId + t); // NB: Increases totalSupply
         }
     }
 
@@ -617,8 +618,6 @@ contract Lootery is
         if (whomst == address(0)) {
             revert ERC721NonexistentToken(tokenId);
         }
-        // Burning the token is our "claim nullifier"
-        _burn(tokenId);
 
         PurchasedTicket memory ticket = purchasedTickets[tokenId];
         uint256 currentGameId = currentGame.id;
@@ -631,38 +630,44 @@ contract Lootery is
         Game memory game = gameData[ticket.gameId];
         uint256 winningPickId = game.winningPickId;
         uint256 numWinners = numWinnersInGame(ticket.gameId, winningPickId);
-        uint256 numClaimedWinningTickets = claimedWinningTickets[ticket.gameId]
-            .length;
 
         if (numWinners == 0 && currentGame.state == GameState.Dead) {
             // No jackpot winners, and game is no longer active!
             // Jackpot is shared between all tickets
             // Invariant: `ticketsSold[gameId] > 0`
-            prizeShare =
-                unclaimedPayouts /
-                (game.ticketsSold - numClaimedWinningTickets);
+            prizeShare = unclaimedPayouts / totalSupply;
             // Decrease unclaimed payouts by the amount just claimed
             unclaimedPayouts -= prizeShare;
-            // Record that this ticket has claimed its winnings
-            claimedWinningTickets[ticket.gameId].push(tokenId);
+            // Burning the token is our "consolation prize claim nullifier"
+            _burn(tokenId); // NB: decreases totalSupply
+            // Transfer share of jackpot to ticket holder
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
             emit ConsolationClaimed(tokenId, ticket.gameId, whomst, prizeShare);
         } else if (winningPickId == ticket.pickId) {
             assert(numWinners > 0);
-            // This ticket did have the winning numbers
+            // This ticket did have the winning numbers; just check it hasn't
+            // been used to claim a prize already
+            if (isWinningsClaimed[tokenId]) {
+                revert AlreadyClaimed(tokenId);
+            }
+            // OK - compute the prize share to transfer
+            uint256 numClaimedWinningTickets_ = numClaimedWinningTickets[
+                ticket.gameId
+            ];
             prizeShare =
                 unclaimedPayouts /
-                (numWinners - numClaimedWinningTickets);
+                (numWinners - numClaimedWinningTickets_);
             // Decrease unclaimed payouts by the amount just claimed
             unclaimedPayouts -= prizeShare;
-            // Record that this ticket has claimed its winnings
-            claimedWinningTickets[ticket.gameId].push(tokenId);
+            // Record that this ticket has claimed its winnings, but don't burn
+            isWinningsClaimed[tokenId] = true;
+            numClaimedWinningTickets[ticket.gameId] += 1;
             // Transfer share of jackpot to ticket holder
             IERC20(prizeToken).safeTransfer(whomst, prizeShare);
 
             emit WinningsClaimed(tokenId, ticket.gameId, whomst, prizeShare);
         } else {
-            emit NoWin(ticket.pickId, winningPickId);
+            revert NoWin(ticket.pickId, winningPickId);
         }
     }
 
@@ -762,5 +767,23 @@ contract Lootery is
                 maxBallValue,
                 Pick.parse(pickLength, purchasedTickets[tokenId].pickId)
             );
+    }
+
+    /// @notice Overrides {ERC721-_update} to track totalSupply
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal virtual override returns (address) {
+        address previousOwner = super._update(to, tokenId, auth);
+
+        if (previousOwner == address(0)) {
+            totalSupply += 1;
+        }
+        if (to == address(0)) {
+            totalSupply -= 1;
+        }
+
+        return previousOwner;
     }
 }
