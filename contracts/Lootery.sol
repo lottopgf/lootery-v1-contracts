@@ -418,8 +418,15 @@ contract Lootery is
         // Assert that there are actually tickets sold in this game
         // slither-disable-next-line incorrect-equality
         if (game.ticketsSold == 0) {
-            // Case #1: No tickets were sold, just skip the game
-            emit DrawSkipped(currentGame.id);
+            if (isApocalypseMode) {
+                // Case #0: Apocalypse mode is triggered, but there were no
+                // tickets sold and therefore nobody to distribute jackpot or
+                // prize to.
+                revert NoTicketsSold();
+            } else {
+                // Case #1: No tickets were sold, just skip the game
+                emit DrawSkipped(currentGame.id);
+            }
             _setupNextGame();
         } else {
             // Case #2: Tickets were sold

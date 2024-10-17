@@ -155,6 +155,7 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     error PrizeTokenWithdrawalNotAllowed();
     error AlreadyClaimed(uint256 tokenId);
     error NoWin(uint256 pickId, uint256 winningPickId);
+    error NoTicketsSold();
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

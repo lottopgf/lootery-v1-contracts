@@ -356,6 +356,11 @@
   },
   {
     "inputs": [],
+    "name": "NoTicketsSold",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NoTicketsSpecified",
     "type": "error"
   },

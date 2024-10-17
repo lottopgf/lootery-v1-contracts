@@ -691,6 +691,16 @@ describe('Lootery', () => {
             await expect(lotto.draw()).to.not.be.reverted
         })
 
+        it('should revert if there are no tickets sold in current game, but apocalypse mode was triggered', async () => {
+            await lotto.kill()
+            await time.increase(3600n)
+
+            const { id } = await lotto.currentGame()
+            const { ticketsSold } = await lotto.gameData(id)
+            expect(ticketsSold).to.eq(0)
+            await expect(lotto.draw()).to.be.revertedWithCustomError(lotto, 'NoTicketsSold')
+        })
+
         it('should skip draw if there are no tickets sold in current game', async () => {
             await time.increase(3600n)
 
