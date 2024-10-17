@@ -206,15 +206,6 @@ contract Lootery is
         });
     }
 
-    /// @notice Set the callback gas limit
-    /// @param newCallbackGasLimit New callback gas limit
-    function setCallbackGasLimit(
-        uint256 newCallbackGasLimit
-    ) external onlyOwner {
-        callbackGasLimit = newCallbackGasLimit;
-        emit CallbackGasLimitSet(newCallbackGasLimit);
-    }
-
     /// @notice Get all beneficiaries (shouldn't be such a huge list)
     function beneficiaries()
         external

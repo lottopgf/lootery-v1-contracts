@@ -1898,19 +1898,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "newCallbackGasLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "setCallbackGasLimit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "renderer",
         "type": "address"

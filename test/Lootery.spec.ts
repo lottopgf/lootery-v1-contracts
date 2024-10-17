@@ -1479,31 +1479,6 @@ describe('Lootery', () => {
             expect(tokenUri.startsWith('data:application/json;base64,')).to.eq(true)
         })
     })
-
-    describe('#setCallbackGasLimit', () => {
-        it('should set callback gas limit if called by owner', async () => {
-            const { lotto } = await deployLotto({
-                deployer,
-                factory,
-                gamePeriod: 3600n,
-                prizeToken: testERC20,
-            })
-            await expect(lotto.setCallbackGasLimit(1_000_000))
-                .to.emit(lotto, 'CallbackGasLimitSet')
-                .withArgs(1_000_000)
-            expect(await lotto.callbackGasLimit()).to.eq(1_000_000)
-        })
-
-        it('should revert if not called by owner', async () => {
-            const { lotto } = await deployLotto({
-                deployer,
-                factory,
-                gamePeriod: 3600n,
-                prizeToken: testERC20,
-            })
-            await expect(lotto.connect(alice).setCallbackGasLimit(1_000_000)).to.be.reverted
-        })
-    })
 })
 
 async function deployUninitialisedLootery(deployer: SignerWithAddress) {
