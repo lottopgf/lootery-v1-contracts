@@ -122,6 +122,8 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     event ExcessRefunded(address indexed to, uint256 value);
     event ProtocolFeePaid(address indexed to, uint256 value);
     event CallbackGasLimitSet(uint256 newCallbackGasLimit);
+    event TicketSVGRendererSet(address indexed renderer);
+    event ApocalypseModeActivated(uint256 indexed gameId);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidPickLength(uint256 pickLength);

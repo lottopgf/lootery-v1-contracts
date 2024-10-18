@@ -681,6 +681,7 @@ contract Lootery is
             revert GameInactive();
         }
         isApocalypseMode = true;
+        emit ApocalypseModeActivated(currentGame.id);
     }
 
     /// @notice Withdraw any ETH (used for VRF requests).
@@ -733,6 +734,7 @@ contract Lootery is
             revert InvalidTicketSVGRenderer(renderer);
         }
         ticketSVGRenderer = renderer;
+        emit TicketSVGRendererSet(renderer);
     }
 
     /// @notice Set the SVG renderer for tickets
