@@ -284,11 +284,9 @@ contract Lootery is
 
         uint256 ticketsCount = tickets.length;
         Game memory game = gameData[currentGameId];
-        gameData[currentGameId] = Game({
-            ticketsSold: game.ticketsSold + uint64(ticketsCount),
-            startedAt: game.startedAt,
-            winningPickId: game.winningPickId
-        });
+        gameData[currentGameId].ticketsSold =
+            game.ticketsSold +
+            uint64(ticketsCount);
 
         uint256 pickLength_ = pickLength;
         uint256 maxBallValue_ = maxBallValue;
@@ -528,11 +526,7 @@ contract Lootery is
 
         // Initialise data for next game
         currentGame = CurrentGame({state: nextState, id: gameId + 1});
-        gameData[gameId + 1] = Game({
-            ticketsSold: 0,
-            startedAt: uint64(block.timestamp),
-            winningPickId: 0
-        });
+        gameData[gameId + 1].startedAt = uint64(block.timestamp);
 
         // Jackpot accounting: rollover jackpot if no winner
         uint256 winningPickId = gameData[gameId].winningPickId;
