@@ -739,10 +739,9 @@ contract Lootery is
     /// @notice Set the SVG renderer for tickets (privileged)
     /// @param renderer Address of renderer contract
     function _setTicketSVGRenderer(address renderer) internal {
-        bool isValidRenderer = renderer != address(0) &&
-            IERC165(renderer).supportsInterface(
-                type(ITicketSVGRenderer).interfaceId
-            );
+        bool isValidRenderer = IERC165(renderer).supportsInterface(
+            type(ITicketSVGRenderer).interfaceId
+        );
         if (!isValidRenderer) {
             revert InvalidTicketSVGRenderer(renderer);
         }
