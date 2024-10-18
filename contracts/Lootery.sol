@@ -233,10 +233,15 @@ contract Lootery is
             if (bytes(displayName).length == 0) {
                 revert EmptyDisplayName();
             }
+            // Set display name if it changed (or was unset)
+            bool didDisplayNameChange = keccak256(
+                bytes(beneficiaryDisplayNames[beneficiary])
+            ) != keccak256(bytes(displayName));
             beneficiaryDisplayNames[beneficiary] = displayName;
-            didMutate = _beneficiaries.add(beneficiary);
+            // Upsert beneficiary
+            didMutate = _beneficiaries.add(beneficiary) || didDisplayNameChange;
             if (didMutate) {
-                emit BeneficiaryAdded(beneficiary, displayName);
+                emit BeneficiarySet(beneficiary, displayName);
             }
         } else {
             didMutate = _beneficiaries.remove(beneficiary);

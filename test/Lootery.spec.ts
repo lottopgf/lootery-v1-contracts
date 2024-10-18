@@ -314,15 +314,47 @@ describe('Lootery', () => {
             for (const address of randomAddresses) {
                 await lotto.setBeneficiary(address, `Beneficiary ${address}`, true)
             }
+            const [addresses0] = await lotto.beneficiaries()
+            expect(addresses0).to.deep.equal(randomAddresses)
 
             // Remove beneficiaries
-            randomAddresses.push(randomAddresses[randomAddresses.length - 1]) // Duplicate removal
             for (const address of randomAddresses) {
-                await lotto.setBeneficiary(address, '', false)
+                await expect(lotto.setBeneficiary(address, '', false))
+                    .to.emit(lotto, 'BeneficiaryRemoved')
+                    .withArgs(address)
             }
-            const [addresses, displayNames] = await lotto.beneficiaries()
-            expect(addresses).to.deep.equal([])
+            await expect(lotto.setBeneficiary(randomAddresses[0], '', false)).to.not.emit(
+                lotto,
+                'BeneficiaryRemoved',
+            ) // Duplicate removal
+            const [addresses1, displayNames] = await lotto.beneficiaries()
+            expect(addresses1).to.deep.equal([])
             expect(displayNames).to.deep.equal([])
+        })
+
+        it('should emit BeneficiarySet events when changed', async () => {
+            const addresses = [
+                ethers.Wallet.createRandom().address,
+                ethers.Wallet.createRandom().address,
+            ]
+            // Add
+            for (const address of addresses) {
+                await expect(lotto.setBeneficiary(address, `Beneficiary ${address}`, true))
+                    .to.emit(lotto, 'BeneficiarySet')
+                    .withArgs(address, `Beneficiary ${address}`)
+            }
+            // Change display name
+            for (const address of addresses) {
+                await expect(lotto.setBeneficiary(address, `Updated beneficiary ${address}`, true))
+                    .to.emit(lotto, 'BeneficiarySet')
+                    .withArgs(address, `Updated beneficiary ${address}`)
+            }
+            // Noop
+            for (const address of addresses) {
+                await expect(
+                    lotto.setBeneficiary(address, `Updated beneficiary ${address}`, true),
+                ).to.not.emit(lotto, 'BeneficiarySet')
+            }
         })
     })
 

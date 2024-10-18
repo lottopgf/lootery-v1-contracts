@@ -117,7 +117,7 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     );
     event AccruedCommunityFeesWithdrawn(address indexed to, uint256 amount);
     event OperationalFundsWithdrawn(address indexed to, uint256 amount);
-    event BeneficiaryAdded(address indexed beneficiary, string displayName);
+    event BeneficiarySet(address indexed beneficiary, string displayName);
     event BeneficiaryRemoved(address indexed beneficiary);
     event ExcessRefunded(address indexed to, uint256 value);
     event ProtocolFeePaid(address indexed to, uint256 value);

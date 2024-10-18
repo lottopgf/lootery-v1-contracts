@@ -550,6 +550,19 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ApocalypseModeActivated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -600,25 +613,6 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "beneficiary",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "displayName",
-        "type": "string"
-      }
-    ],
-    "name": "BeneficiaryAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
@@ -650,6 +644,25 @@
       }
     ],
     "name": "BeneficiaryRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "displayName",
+        "type": "string"
+      }
+    ],
+    "name": "BeneficiarySet",
     "type": "event"
   },
   {
@@ -940,6 +953,19 @@
       }
     ],
     "name": "TicketPurchased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "renderer",
+        "type": "address"
+      }
+    ],
+    "name": "TicketSVGRendererSet",
     "type": "event"
   },
   {
