@@ -367,7 +367,9 @@ contract Lootery is
             if (!_beneficiaries.contains(beneficiary)) {
                 revert UnknownBeneficiary(beneficiary);
             }
-            IERC20(prizeToken).safeTransfer(beneficiary, communityFeeShare);
+            if (communityFeeShare > 0) {
+                IERC20(prizeToken).safeTransfer(beneficiary, communityFeeShare);
+            }
         }
         emit BeneficiaryPaid(
             currentGameId,
