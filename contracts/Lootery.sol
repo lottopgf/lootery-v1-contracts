@@ -7,6 +7,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {ERC721Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -45,7 +46,8 @@ contract Lootery is
     Initializable,
     ILootery,
     OwnableUpgradeable,
-    ERC721Upgradeable
+    ERC721Upgradeable,
+    ReentrancyGuardUpgradeable
 {
     using SafeERC20 for IERC20;
     using Strings for uint256;
@@ -140,6 +142,7 @@ contract Lootery is
     function init(InitConfig memory initConfig) public override initializer {
         __Ownable_init(initConfig.owner);
         __ERC721_init(initConfig.name, initConfig.symbol);
+        __ReentrancyGuard_init();
 
         factory = msg.sender;
 
@@ -432,7 +435,12 @@ contract Lootery is
 
     /// @notice This is an escape hatch to re-request randomness in case there
     ///     is some issue with the VRF fulfiller.
-    function forceRedraw() external payable onlyInState(GameState.DrawPending) {
+    function forceRedraw()
+        external
+        payable
+        nonReentrant
+        onlyInState(GameState.DrawPending)
+    {
         RandomnessRequest memory request = randomnessRequest;
         if (request.timestamp == 0) {
             revert NoRandomnessRequestInFlight();
