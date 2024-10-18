@@ -378,7 +378,7 @@ contract Lootery is
         );
 
         // Payout protocol fees
-        if (protocolFeeRecipient != address(0) && protocolFeeShare > 0) {
+        if (protocolFeeShare > 0) {
             IERC20(prizeToken).safeTransfer(
                 protocolFeeRecipient,
                 protocolFeeShare
