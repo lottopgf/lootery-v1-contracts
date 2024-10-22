@@ -153,6 +153,7 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     error EmptyDisplayName();
     error NoTicketsSpecified();
     error NoRandomnessRequestInFlight();
+    error PrizeTokenWithdrawalNotAllowed();
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

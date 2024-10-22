@@ -1342,46 +1342,10 @@ describe('Lootery', () => {
         })
 
         describe('rescue prize token', () => {
-            for (let i = 0; i < runs; i++) {
-                // Fuzz random scenarios
-                const commFees = randomBigInt(16)
-                const unclaimedPayouts = randomBigInt(16)
-                const jackpot = randomBigInt(16)
-                const locked = commFees + unclaimedPayouts + jackpot
-                const excess = randomBigInt(16)
-                it(`should rescue prize token (${i + 1}/${runs})`, async () => {
-                    await lotto.setAccruedCommunityFees(commFees)
-                    await lotto.setUnclaimedPayouts(unclaimedPayouts)
-                    await lotto.setJackpot(jackpot)
-                    await testERC20.mint(await lotto.getAddress(), locked + excess)
-                    expect(await testERC20.getAddress()).to.eq(await lotto.prizeToken())
-
-                    // Total locked should be sum of accrued fees, unclaimed payouts, and jackpot
-                    const balance = await testERC20.balanceOf(deployer.address)
-                    await lotto.rescueTokens(await lotto.prizeToken())
-                    expect(await testERC20.balanceOf(deployer.address)).to.eq(balance + excess)
-                })
-            }
-
-            it('should rescue all prize tokens if in Dead state and no tickets sold', async () => {
-                const commFees = parseEther('1')
-                const unclaimedPayouts = parseEther('2')
-                const jackpot = parseEther('3')
-                const locked = commFees + unclaimedPayouts + jackpot
-                const excess = parseEther('1')
-                await lotto.setAccruedCommunityFees(commFees)
-                await lotto.setUnclaimedPayouts(unclaimedPayouts)
-                await lotto.setJackpot(jackpot)
-                await testERC20.mint(await lotto.getAddress(), locked + excess)
-                await lotto.kill()
-                await time.increase(await lotto.gamePeriod())
-                await lotto.draw()
-
-                await lotto.rescueTokens(await lotto.prizeToken())
-                expect(await testERC20.balanceOf(await lotto.getAddress())).to.eq(0)
-                expect(await lotto.accruedCommunityFees()).to.eq(0)
-                expect(await lotto.unclaimedPayouts()).to.eq(0)
-                expect(await lotto.jackpot()).to.eq(0)
+            it('should revert if trying to withdraw prize token', async () => {
+                await expect(
+                    lotto.rescueTokens(await lotto.prizeToken()),
+                ).to.be.revertedWithCustomError(lotto, 'PrizeTokenWithdrawalNotAllowed')
             })
         })
     })

@@ -204,6 +204,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "PrizeTokenWithdrawalNotAllowed",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
