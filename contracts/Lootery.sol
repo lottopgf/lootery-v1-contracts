@@ -489,7 +489,7 @@ contract Lootery is
             requestId: uint208(requestId),
             timestamp: uint48(block.timestamp)
         });
-        emit RandomnessRequested(uint208(requestId), uint48(block.timestamp));
+        emit RandomnessRequested(uint208(requestId));
     }
 
     /// @notice Callback for VRF fulfiller.

@@ -105,7 +105,7 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
         uint256 value
     );
     event DrawSkipped(uint256 indexed gameId);
-    event RandomnessRequested(uint208 requestId, uint48 timestamp);
+    event RandomnessRequested(uint208 requestId);
     event Received(address sender, uint256 amount);
     event JackpotSeeded(address indexed whomst, uint256 amount);
     event JackpotRollover(

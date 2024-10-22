@@ -899,12 +899,6 @@
         "internalType": "uint208",
         "name": "requestId",
         "type": "uint208"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint48",
-        "name": "timestamp",
-        "type": "uint48"
       }
     ],
     "name": "RandomnessRequested",
