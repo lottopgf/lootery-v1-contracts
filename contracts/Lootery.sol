@@ -548,49 +548,35 @@ contract Lootery is
         uint256 numWinners = tokenByPickIdentity[gameId][winningPickId].length;
         uint256 currentUnclaimedPayouts = unclaimedPayouts;
         uint256 currentJackpot = jackpot;
-        if (numWinners == 0) {
-            if (nextState == GameState.Dead) {
-                // No winners, but apocalypse mode
-                uint256 nextJackpot = 0;
-                uint256 nextUnclaimedPayouts = currentUnclaimedPayouts +
-                    currentJackpot;
-                jackpot = 0;
-                unclaimedPayouts = nextUnclaimedPayouts;
-                emit JackpotRollover(
-                    gameId,
-                    currentUnclaimedPayouts,
-                    currentJackpot,
-                    nextUnclaimedPayouts,
-                    nextJackpot
-                );
-            } else {
-                // No winners, current jackpot and unclaimed payouts are rolled
-                // over to the next game
-                uint256 nextJackpot = currentUnclaimedPayouts + currentJackpot;
-                uint256 nextUnclaimedPayouts = 0;
-                jackpot = nextJackpot;
-                unclaimedPayouts = 0;
-                emit JackpotRollover(
-                    gameId,
-                    currentUnclaimedPayouts,
-                    currentJackpot,
-                    nextUnclaimedPayouts,
-                    nextJackpot
-                );
-            }
-        } else {
-            // Winners! Jackpot resets to zero for next game, and current
-            // jackpot+unclaimed goes into next game's unclaimed payouts
-            uint256 nextUnclaimedPayouts = currentJackpot +
-                currentUnclaimedPayouts;
-            unclaimedPayouts = nextUnclaimedPayouts;
-            jackpot = 0;
+
+        if (numWinners == 0 && nextState != GameState.Dead) {
+            // No winners, normal game transition, current jackpot and
+            // unclaimed payouts are rolled over to the next game
+            uint256 nextJackpot = currentUnclaimedPayouts + currentJackpot;
+            uint256 nextUnclaimedPayouts = 0;
+            jackpot = nextJackpot;
+            unclaimedPayouts = 0;
             emit JackpotRollover(
                 gameId,
                 currentUnclaimedPayouts,
                 currentJackpot,
                 nextUnclaimedPayouts,
-                0
+                nextJackpot
+            );
+        } else {
+            // There are winners, or apocalypse mode has been triggered
+            // => jackpot+unclaimed goes into next game's unclaimed
+            uint256 nextJackpot = 0;
+            uint256 nextUnclaimedPayouts = currentUnclaimedPayouts +
+                currentJackpot;
+            jackpot = 0;
+            unclaimedPayouts = nextUnclaimedPayouts;
+            emit JackpotRollover(
+                gameId,
+                currentUnclaimedPayouts,
+                currentJackpot,
+                nextUnclaimedPayouts,
+                nextJackpot
             );
         }
     }
