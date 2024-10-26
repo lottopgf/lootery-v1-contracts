@@ -121,7 +121,7 @@ contract Lootery is
     }
 
     function typeAndVersion() external pure returns (string memory) {
-        return "Lootery 1.8.0";
+        return "Lootery 1.9.0";
     }
 
     /// @dev The contract should be able to receive Ether to pay for VRF.
