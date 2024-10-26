@@ -1,0 +1,7 @@
+{
+  "TicketSVGRenderer#TicketSVGRenderer": "0xf20B8D8d8B872a0b7b08b268270524249bff4589",
+  "LooteryImplV1_8_0#Lootery": "0xB96b055a8a07113eb3E9279bbA1284c30464778e",
+  "LooteryFactory#LooteryFactory": "0x054Cb4A19Bc24Fe8FeEF7ee1404B8833B87277e4",
+  "LooteryFactory#ERC1967Proxy": "0xca90207F3632C27BAeabe381eB5a6772D75C11A5",
+  "LooteryETHAdapter#LooteryETHAdapter": "0x51A60D80Fa6d5FEDeb87E615Ed1D41661CB42A69"
+}
