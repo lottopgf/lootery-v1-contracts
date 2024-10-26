@@ -17,7 +17,7 @@ export const config: Config = {
     },
     '534352': {
         /** scroll mainnet */
-        anyrand: '0x46CFe55bf2E5A02B738f5BBdc1bDEE9Dd22b5d39',
+        anyrand: '0x46CFe55bf2E5A02B738f5BBdc1bDEE9Dd22b5d39', // NB: This was the old Anyrand address, but corrected after deployment to 0x7ED45287f817842d72753FE02617629c4c7c2FBE
         weth: '0x5300000000000000000000000000000000000004',
         owner: '0xF9FCDf64160087Ac1610bB1366750D55043ef206',
         feeRecipient: '0xF9FCDf64160087Ac1610bB1366750D55043ef206',
