@@ -8,7 +8,7 @@ const configWithNetwork: HardhatUserConfig = {
         gnosis: {
             chainId: 100,
             url: process.env.XDAI_URL as string,
-            accounts: [process.env.MAINNET_PK as string],
+            accounts: [process.env.LOOTERY_V1_GNOSIS_DEPLOYER_PK as string],
         },
     },
     etherscan: {
