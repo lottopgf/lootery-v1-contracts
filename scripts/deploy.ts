@@ -54,17 +54,18 @@ async function main() {
     // NB: This should always be the last step
     // Transfer ownership of the factory
     if (owner) {
+        const DEFAULT_ADMIN_ROLE = await looteryFactory.DEFAULT_ADMIN_ROLE()
         assert(getAddress(owner) !== ZeroAddress, 'Owner cannot be the zero address')
-        await looteryFactory.grantRole(await looteryFactory.DEFAULT_ADMIN_ROLE(), owner)
+        await looteryFactory.grantRole(DEFAULT_ADMIN_ROLE, owner).then((tx) => tx.wait(1))
         // Sanity check
         assert(
-            await looteryFactory.hasRole(await looteryFactory.DEFAULT_ADMIN_ROLE(), owner),
+            await looteryFactory.hasRole(DEFAULT_ADMIN_ROLE, owner),
             `${owner} was not successfully granted the admin role`,
         )
-        await looteryFactory.revokeRole(await looteryFactory.DEFAULT_ADMIN_ROLE(), deployer)
+        await looteryFactory.revokeRole(DEFAULT_ADMIN_ROLE, deployer).then((tx) => tx.wait(1))
         // Sanity check
         assert(
-            !(await looteryFactory.hasRole(await looteryFactory.DEFAULT_ADMIN_ROLE(), deployer)),
+            !(await looteryFactory.hasRole(DEFAULT_ADMIN_ROLE, deployer)),
             `${deployer} was not successfully revoked of the admin role`,
         )
     }
