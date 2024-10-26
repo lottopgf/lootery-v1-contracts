@@ -29,6 +29,17 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "AlreadyClaimed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "caller",
         "type": "address"
@@ -345,7 +356,28 @@
   },
   {
     "inputs": [],
+    "name": "NoTicketsSold",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "NoTicketsSpecified",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "pickId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "winningPickId",
+        "type": "uint256"
+      }
+    ],
+    "name": "NoWin",
     "type": "error"
   },
   {
@@ -376,6 +408,11 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "PrizeTokenWithdrawalNotAllowed",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -384,6 +421,11 @@
       }
     ],
     "name": "RateLimited",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
     "type": "error"
   },
   {
@@ -513,6 +555,19 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ApocalypseModeActivated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -563,25 +618,6 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "beneficiary",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "displayName",
-        "type": "string"
-      }
-    ],
-    "name": "BeneficiaryAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
@@ -613,6 +649,25 @@
       }
     ],
     "name": "BeneficiaryRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "beneficiary",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "displayName",
+        "type": "string"
+      }
+    ],
+    "name": "BeneficiarySet",
     "type": "event"
   },
   {
@@ -783,25 +838,6 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "pickId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "winningPickId",
-        "type": "uint256"
-      }
-    ],
-    "name": "NoWin",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": true,
         "internalType": "address",
         "name": "to",
@@ -863,12 +899,6 @@
         "internalType": "uint208",
         "name": "requestId",
         "type": "uint208"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint48",
-        "name": "timestamp",
-        "type": "uint48"
       }
     ],
     "name": "RandomnessRequested",
@@ -922,6 +952,19 @@
       }
     ],
     "name": "TicketPurchased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "renderer",
+        "type": "address"
+      }
+    ],
+    "name": "TicketSVGRendererSet",
     "type": "event"
   },
   {
@@ -1129,30 +1172,6 @@
       }
     ],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "gameId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "claimedWinningTickets",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1456,6 +1475,25 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isWinningsClaimed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "jackpot",
     "outputs": [
@@ -1520,6 +1558,25 @@
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
+      }
+    ],
+    "name": "numClaimedWinningTickets",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -1568,31 +1625,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "whomst",
-            "type": "address"
-          },
-          {
-            "internalType": "uint8[]",
-            "name": "pick",
-            "type": "uint8[]"
-          }
-        ],
-        "internalType": "struct ILootery.Ticket[]",
-        "name": "tickets",
-        "type": "tuple[]"
-      }
-    ],
-    "name": "ownerPick",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1885,19 +1917,6 @@
         "type": "bool"
       }
     ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newCallbackGasLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "setCallbackGasLimit",
-    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },

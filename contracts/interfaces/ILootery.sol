@@ -104,9 +104,8 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
         address whomst,
         uint256 value
     );
-    event NoWin(uint256 pickId, uint256 winningPickId);
     event DrawSkipped(uint256 indexed gameId);
-    event RandomnessRequested(uint208 requestId, uint48 timestamp);
+    event RandomnessRequested(uint208 requestId);
     event Received(address sender, uint256 amount);
     event JackpotSeeded(address indexed whomst, uint256 amount);
     event JackpotRollover(
@@ -118,11 +117,13 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     );
     event AccruedCommunityFeesWithdrawn(address indexed to, uint256 amount);
     event OperationalFundsWithdrawn(address indexed to, uint256 amount);
-    event BeneficiaryAdded(address indexed beneficiary, string displayName);
+    event BeneficiarySet(address indexed beneficiary, string displayName);
     event BeneficiaryRemoved(address indexed beneficiary);
     event ExcessRefunded(address indexed to, uint256 value);
     event ProtocolFeePaid(address indexed to, uint256 value);
     event CallbackGasLimitSet(uint256 newCallbackGasLimit);
+    event TicketSVGRendererSet(address indexed renderer);
+    event ApocalypseModeActivated(uint256 indexed gameId);
 
     error TransferFailure(address to, uint256 value, bytes reason);
     error InvalidPickLength(uint256 pickLength);
@@ -153,6 +154,10 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     error EmptyDisplayName();
     error NoTicketsSpecified();
     error NoRandomnessRequestInFlight();
+    error PrizeTokenWithdrawalNotAllowed();
+    error AlreadyClaimed(uint256 tokenId);
+    error NoWin(uint256 pickId, uint256 winningPickId);
+    error NoTicketsSold();
 
     /// @notice Initialises the contract instance
     function init(InitConfig memory initConfig) external;

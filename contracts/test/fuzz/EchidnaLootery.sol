@@ -27,6 +27,7 @@ contract EchidnaLootery {
     mapping(uint256 gameId => uint256 unclaimedPayouts)
         internal recUnclaimedPayouts;
     mapping(uint256 gameId => uint256 jackpot) internal recJackpots;
+    uint256 internal recTotalMinted;
 
     event DebugLog(string msg);
     event AssertionFailed(string reason);
@@ -101,40 +102,6 @@ contract EchidnaLootery {
         lootery.seedJackpot(value);
     }
 
-    function ownerPick(uint256 numTickets, uint256 seed) external {
-        numTickets = numTickets % 20; // max 20 tix
-        lastTicketSeed = seed;
-
-        ///////////////////////////////////////////////////////////////////////
-        /// Initial state /////////////////////////////////////////////////////
-        uint256 totalSupply0 = lootery.totalSupply();
-        uint256 jackpot0 = lootery.jackpot();
-        uint256 accruedCommunityFees0 = lootery.accruedCommunityFees();
-        ///////////////////////////////////////////////////////////////////////
-
-        ILootery.Ticket[] memory tickets = new ILootery.Ticket[](numTickets);
-        for (uint256 i = 0; i < numTickets; i++) {
-            lastTicketSeed = uint256(
-                keccak256(abi.encodePacked(lastTicketSeed))
-            );
-            bool isEmptyPick = lastTicketSeed % 2 == 0;
-            tickets[i] = ILootery.Ticket({
-                whomst: msg.sender,
-                pick: isEmptyPick
-                    ? new uint8[](0)
-                    : lootery.computeWinningPick(lastTicketSeed)
-            });
-        }
-        lootery.ownerPick(tickets);
-
-        ///////////////////////////////////////////////////////////////////////
-        /// Postconditions ////////////////////////////////////////////////////
-        assert(lootery.totalSupply() == totalSupply0 + numTickets);
-        assert(lootery.jackpot() == jackpot0);
-        assert(lootery.accruedCommunityFees() == accruedCommunityFees0);
-        ///////////////////////////////////////////////////////////////////////
-    }
-
     function purchase(uint256 numTickets, uint256 seed) external {
         numTickets = numTickets % 20; // max 20 tix
         lastTicketSeed = seed;
@@ -166,6 +133,7 @@ contract EchidnaLootery {
         ///////////////////////////////////////////////////////////////////////
         /// Postconditions ////////////////////////////////////////////////////
         assert(lootery.totalSupply() == totalSupply0 + numTickets);
+        recTotalMinted += numTickets;
         assert(lootery.jackpot() > jackpot0);
         // *If no beneficiary was passed in*
         assert(lootery.accruedCommunityFees() > accruedCommunityFees0);
@@ -292,23 +260,12 @@ contract EchidnaLootery {
         address tokenOwner = lootery.ownerOf(tokenId);
         uint256 tokenOwnerBalance0 = prizeToken.balanceOf(tokenOwner);
         (uint256 gameId, uint256 pickId) = lootery.purchasedTickets(tokenId);
-        (uint64 ticketsSold, , uint256 winningPickId) = lootery.gameData(
-            gameId
-        );
+        (, , uint256 winningPickId) = lootery.gameData(gameId);
 
         lootery.claimWinnings(tokenId);
 
         ///////////////////////////////////////////////////////////////////////
         /// Postconditions ////////////////////////////////////////////////////
-        bool isBurnt;
-        try lootery.ownerOf(tokenId) {} catch {
-            isBurnt = true;
-        }
-        assertWithMsg(isBurnt, "tokenId not burnt");
-        // Total supply should not change; we don't decrease it during burn
-        // We use `totalSupply()` to increment token IDs
-        assert(lootery.totalSupply() == totalSupply0);
-
         uint256 numWinners = lootery.numWinnersInGame(gameId, winningPickId);
         uint256 tokenOwnerBalance1 = prizeToken.balanceOf(tokenOwner);
         if (winningPickId == pickId) {
@@ -319,21 +276,34 @@ contract EchidnaLootery {
                 tokenOwnerBalance1 - tokenOwnerBalance0 >= minPrizeShare,
                 "winner did not receive jackpot"
             );
+            assert(lootery.totalSupply() == totalSupply0);
         } else {
             if (numWinners == 0 && state == ILootery.GameState.Dead) {
                 // Apocalypse mode, no winner -> claim even share
                 uint256 minPrizeShare = recUnclaimedPayouts[gameId] /
-                    ticketsSold;
+                    recTotalMinted;
                 assertWithMsg(
                     tokenOwnerBalance1 - tokenOwnerBalance0 >= minPrizeShare,
                     "consolation prize not received"
                 );
+
+                // Claiming consolation prize should burn the token
+                bool isBurnt;
+                try lootery.ownerOf(tokenId) {} catch {
+                    isBurnt = true;
+                }
+                assertWithMsg(
+                    isBurnt,
+                    "tokenId not burnt after claiming consolation prize"
+                );
+                assert(lootery.totalSupply() == totalSupply0 - 1);
             } else {
                 // Receive nothing
                 assertWithMsg(
                     tokenOwnerBalance1 == tokenOwnerBalance0,
                     "no prize"
                 );
+                assert(lootery.totalSupply() == totalSupply0);
             }
         }
     }
@@ -348,43 +318,6 @@ contract EchidnaLootery {
 
     function rescueRandomTokens(address tokenAddress) external {
         lootery.rescueTokens(tokenAddress);
-    }
-
-    function rescuePrizeTokens() external {
-        ///////////////////////////////////////////////////////////////////////
-        /// Initial state /////////////////////////////////////////////////////
-        uint256 locked = lootery.accruedCommunityFees() +
-            lootery.unclaimedPayouts() +
-            lootery.jackpot();
-        ///////////////////////////////////////////////////////////////////////
-
-        lootery.rescueTokens(address(prizeToken));
-
-        ///////////////////////////////////////////////////////////////////////
-        /// Postconditions ////////////////////////////////////////////////////
-        (ILootery.GameState state, uint256 gameId) = lootery.currentGame();
-        require(gameId > 0, "No games played yet");
-
-        // The following checks are to ensure that we never have funds that are
-        // stuck in the contract, even in the rare case that the game is dead
-        // with no tickets sold.
-        (uint64 ticketsSold, , ) = lootery.gameData(gameId - 1);
-        bool isDeadWithNoTickets = state == ILootery.GameState.Dead &&
-            ticketsSold == 0;
-        uint256 balance1 = prizeToken.balanceOf(address(lootery));
-        if (isDeadWithNoTickets) {
-            // If the game is dead, then we should have been able to rescue
-            // the entire balance of prize tokens.
-            assertWithMsg(balance1 == 0, "stuck funds");
-            assertWithMsg(
-                lootery.accruedCommunityFees() == 0 &&
-                    lootery.unclaimedPayouts() == 0 &&
-                    lootery.jackpot() == 0,
-                "all accrued fee values should be 0"
-            );
-        } else {
-            assertWithMsg(balance1 == locked, "unbacked");
-        }
     }
 
     function sendAccidentalPrizeTokens(uint256 amount) external {
