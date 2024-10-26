@@ -96,7 +96,7 @@ export async function deployLotto({
 
         // Fulfill w/ mock randomiser
         const fulfilmentTx = await mockRandomiser
-            .fulfillRandomWords(requestId, [randomness])
+            .fulfillRandomness(requestId, randomness)
             .then((tx) => tx.wait(1))
         const [, emittedBalls] = lotto.interface.decodeEventLog(
             'GameFinalised',

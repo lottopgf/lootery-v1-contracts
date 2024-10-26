@@ -103,7 +103,7 @@ describe('Lootery e2e', () => {
 
         // Fulfill w/ mock randomiser (no winners)
         let fulfilmentTx = await mockRandomiser
-            .fulfillRandomWords(requestId, [6942069421])
+            .fulfillRandomness(requestId, 6942069421n)
             .then((tx) => tx.wait(1))
         let [emittedGameId, emittedBalls] = lotto.interface.decodeEventLog(
             'GameFinalised',
@@ -147,7 +147,7 @@ describe('Lootery e2e', () => {
 
         // Fulfill w/ mock randomiser (Bob wins)
         fulfilmentTx = await mockRandomiser
-            .fulfillRandomWords(requestId, [6942069420])
+            .fulfillRandomness(requestId, 6942069420)
             .then((tx) => tx.wait(1))
         ;[emittedGameId, emittedBalls] = lotto.interface.decodeEventLog(
             'GameFinalised',
@@ -240,7 +240,7 @@ describe('Lootery e2e', () => {
 
         // Fulfill w/ mock randomiser (Bob wins)
         const fulfilmentTx = await mockRandomiser
-            .fulfillRandomWords(requestId, [6942069420])
+            .fulfillRandomness(requestId, 6942069420n)
             .then((tx) => tx.wait(1))
         const [emittedGameId, emittedBalls] = lotto.interface.decodeEventLog(
             'GameFinalised',
@@ -394,7 +394,7 @@ describe('Lootery e2e', () => {
 
         // Make sure we can fulfill and continue the game as normal
         // Fulfill w/ mock randomiser
-        await expect(mockRandomiser.fulfillRandomWords(requestId1, [6942069420n])).to.emit(
+        await expect(mockRandomiser.fulfillRandomness(requestId1, 6942069420n)).to.emit(
             lotto,
             'GameFinalised',
         )

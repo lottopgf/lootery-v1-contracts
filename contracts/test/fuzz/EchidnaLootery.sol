@@ -206,14 +206,14 @@ contract EchidnaLootery {
         uint256 total0 = lootery.jackpot() + lootery.unclaimedPayouts();
         ///////////////////////////////////////////////////////////////////////
 
-        uint256[] memory randomWords = new uint256[](1);
+        uint256 randomWord;
         if (seed % 2 == 0) {
-            randomWords[0] = seed;
+            randomWord = seed;
         } else {
-            randomWords[0] = lastTicketSeed;
+            randomWord = lastTicketSeed;
             lastTicketSeed = 0;
         }
-        randomiser.fulfillRandomWords(requestId0, randomWords);
+        randomiser.fulfillRandomness(requestId0, randomWord);
 
         ///////////////////////////////////////////////////////////////////////
         /// Postconditions ////////////////////////////////////////////////////

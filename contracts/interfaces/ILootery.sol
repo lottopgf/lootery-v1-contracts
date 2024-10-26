@@ -3,12 +3,12 @@ pragma solidity ^0.8;
 
 import {ITypeAndVersion} from "./ITypeAndVersion.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {IRandomiserCallback} from "./IRandomiserCallback.sol";
+import {IRandomiserCallbackV3} from "./IRandomiserCallbackV3.sol";
 
 /// @title ILootery
 /// @custom:version 1.3.0
 /// @notice Lootery contract interface
-interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
+interface ILootery is ITypeAndVersion, IRandomiserCallbackV3, IERC721 {
     /// @notice Initial configuration of Lootery
     struct InitConfig {
         address owner;
@@ -143,7 +143,6 @@ interface ILootery is ITypeAndVersion, IRandomiserCallback, IERC721 {
     error RequestIdOverflow(uint256 requestId);
     error CallerNotRandomiser(address caller);
     error RequestIdMismatch(uint256 actual, uint208 expected);
-    error InsufficientRandomWords();
     error WaitLonger(uint256 deadline);
     error InsufficientOperationalFunds(uint256 have, uint256 want);
     error ClaimWindowMissed(uint256 tokenId);

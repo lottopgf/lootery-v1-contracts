@@ -12,7 +12,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IRandomiserCallback} from "./interfaces/IRandomiserCallback.sol";
 import {IAnyrand} from "./interfaces/IAnyrand.sol";
 import {ITicketSVGRenderer} from "./interfaces/ITicketSVGRenderer.sol";
 import {ILooteryFactory} from "./interfaces/ILooteryFactory.sol";
@@ -401,7 +400,10 @@ contract Lootery is
 
     /// @notice Helper to get the request price for VRF call
     function getRequestPrice() public view returns (uint256) {
-        return IAnyrand(randomiser).getRequestPrice(callbackGasLimit);
+        (uint256 requestPrice, ) = IAnyrand(randomiser).getRequestPrice(
+            callbackGasLimit
+        );
+        return requestPrice;
     }
 
     /// @notice Draw numbers, picking potential jackpot winners and ending the
@@ -493,16 +495,13 @@ contract Lootery is
     }
 
     /// @notice Callback for VRF fulfiller.
-    ///     See {IRandomiserCallback-receiveRandomWords}
-    function receiveRandomWords(
+    ///     See {IRandomiserCallback-receiveRandomness}
+    function receiveRandomness(
         uint256 requestId,
-        uint256[] calldata randomWords
+        uint256 randomWord
     ) external onlyInState(GameState.DrawPending) {
         if (msg.sender != randomiser) {
             revert CallerNotRandomiser(msg.sender);
-        }
-        if (randomWords.length == 0) {
-            revert InsufficientRandomWords();
         }
         if (randomnessRequest.requestId != requestId) {
             revert RequestIdMismatch(requestId, randomnessRequest.requestId);
@@ -510,7 +509,7 @@ contract Lootery is
         randomnessRequest = RandomnessRequest({requestId: 0, timestamp: 0});
 
         // Pick winning numbers
-        uint8[] memory balls = computeWinningPick(randomWords[0]);
+        uint8[] memory balls = computeWinningPick(randomWord);
         uint248 gameId = currentGame.id;
         emit GameFinalised(gameId, balls);
 

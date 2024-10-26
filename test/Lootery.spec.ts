@@ -773,7 +773,7 @@ describe('Lootery', () => {
             await lotto.pickTickets([{ whomst: alice.address, pick: [1, 2, 3, 4, 5] }])
             await time.increase(3600n)
 
-            const requestPrice = await mockRandomiser.getRequestPrice(
+            const [requestPrice] = await mockRandomiser.getRequestPrice(
                 500_000 /** TODO: This will be configurable */,
             )
             const payment = parseEther('1') // ought to be enough for any request
@@ -899,7 +899,7 @@ describe('Lootery', () => {
             })
 
             // Expect the game to be finalised
-            await expect(mockRandomiser.fulfillRandomWords(rId, [seed]))
+            await expect(mockRandomiser.fulfillRandomness(rId, seed))
                 .to.emit(lotto, 'GameFinalised')
                 .withArgs(gameId, await lotto.computeWinningPick(seed))
             expect((await lotto.currentGame()).state).to.eq(GameState.Purchase)
@@ -912,7 +912,7 @@ describe('Lootery', () => {
             for (const state of allOtherStates) {
                 await lotto.setGameState(state)
                 await mockRandomiser.setRequest(reqId, await lotto.getAddress())
-                await expect(mockRandomiser.fulfillRandomWords(reqId++, [69420n]))
+                await expect(mockRandomiser.fulfillRandomness(reqId++, 69420n))
                     .to.be.revertedWithCustomError(lotto, 'UnexpectedState')
                     .withArgs(state)
             }
@@ -920,21 +920,9 @@ describe('Lootery', () => {
 
         it('should revert if not called by randomiser', async () => {
             await lotto.setGameState(GameState.DrawPending)
-            await expect(lotto.connect(alice).receiveRandomWords(reqId++, [69420n]))
+            await expect(lotto.connect(alice).receiveRandomness(reqId++, 69420n))
                 .to.be.revertedWithCustomError(lotto, 'CallerNotRandomiser')
                 .withArgs(alice.address)
-        })
-
-        it('should revert if randomWords is empty', async () => {
-            // Mock the state
-            await lotto.setGameState(GameState.DrawPending)
-            const rId = reqId++
-            await mockRandomiser.setRequest(rId, await lotto.getAddress())
-
-            await expect(mockRandomiser.fulfillRandomWords(rId, [])).to.be.revertedWithCustomError(
-                lotto,
-                'InsufficientRandomWords',
-            )
         })
 
         it('should revert if requestId does not match', async () => {
@@ -951,7 +939,7 @@ describe('Lootery', () => {
             const wrongRequestId = rId + 1n
             await mockRandomiser.setRequest(wrongRequestId, await lotto.getAddress())
 
-            await expect(mockRandomiser.fulfillRandomWords(wrongRequestId, [69420n]))
+            await expect(mockRandomiser.fulfillRandomness(wrongRequestId, 69420n))
                 .to.be.revertedWithCustomError(lotto, 'RequestIdMismatch')
                 .withArgs(wrongRequestId, rId)
         })
