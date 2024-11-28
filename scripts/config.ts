@@ -22,4 +22,11 @@ export const config: Config = {
         owner: '0xF9FCDf64160087Ac1610bB1366750D55043ef206',
         feeRecipient: '0xF9FCDf64160087Ac1610bB1366750D55043ef206',
     },
+    '8453': {
+        /** base */
+        anyrand: '0xF6baf607AC2971EE6A3C47981E7176134628e36C',
+        weth: '0x4200000000000000000000000000000000000006',
+        owner: '0xF9FCDf64160087Ac1610bB1366750D55043ef206',
+        feeRecipient: '0xF9FCDf64160087Ac1610bB1366750D55043ef206',
+    },
 }
